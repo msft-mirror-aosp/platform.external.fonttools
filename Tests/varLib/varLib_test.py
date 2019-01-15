@@ -2,13 +2,25 @@ from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools.ttLib import TTFont
 from fontTools.varLib import build
-from fontTools.varLib import main as varLib_main
+from fontTools.varLib import main as varLib_main, load_masters
+from fontTools.designspaceLib import (
+    DesignSpaceDocumentError, DesignSpaceDocument, SourceDescriptor,
+)
 import difflib
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+import pytest
+
+
+def reload_font(font):
+    """(De)serialize to get final binary layout."""
+    buf = BytesIO()
+    font.save(buf)
+    buf.seek(0)
+    return TTFont(buf)
 
 
 class BuildTest(unittest.TestCase):
@@ -94,7 +106,7 @@ class BuildTest(unittest.TestCase):
         return font, savepath
 
     def _run_varlib_build_test(self, designspace_name, font_name, tables,
-                               expected_ttx_name):
+                               expected_ttx_name, save_before_dump=False):
         suffix = '.ttf'
         ds_path = self.get_test_input(designspace_name + '.designspace')
         ufo_dir = self.get_test_input('master_ufo')
@@ -107,6 +119,12 @@ class BuildTest(unittest.TestCase):
 
         finder = lambda s: s.replace(ufo_dir, self.tempdir).replace('.ufo', suffix)
         varfont, model, _ = build(ds_path, finder)
+
+        if save_before_dump:
+            # some data (e.g. counts printed in TTX inline comments) is only
+            # calculated at compile time, so before we can compare the TTX
+            # dumps we need to save to a temporary stream, and realod the font
+            varfont = reload_font(varfont)
 
         expected_ttx_path = self.get_test_output(expected_ttx_name + '.ttx')
         self.expect_ttx(varfont, expected_ttx_path, tables)
@@ -126,12 +144,9 @@ class BuildTest(unittest.TestCase):
 
     def test_varlib_build_no_axes_ttf(self):
         """Designspace file does not contain an <axes> element."""
-        self._run_varlib_build_test(
-            designspace_name='InterpolateLayout3',
-            font_name='TestFamily2',
-            tables=['GDEF', 'HVAR', 'MVAR', 'fvar', 'gvar'],
-            expected_ttx_name='Build3'
-        )
+        ds_path = self.get_test_input('InterpolateLayout3.designspace')
+        with self.assertRaisesRegex(DesignSpaceDocumentError, "No axes defined"):
+            build(ds_path)
 
     def test_varlib_avar_single_axis(self):
         """Designspace file contains a 'weight' axis with <map> elements
@@ -153,7 +168,7 @@ class BuildTest(unittest.TestCase):
         avar segment will not be empty but will contain the default axis value
         maps: {-1.0: -1.0, 0.0: 0.0, 1.0: 1.0}.
 
-        This is to to work around an issue with some rasterizers:
+        This is to work around an issue with some rasterizers:
         https://github.com/googlei18n/fontmake/issues/295
         https://github.com/fonttools/fonttools/issues/1011
         """
@@ -173,7 +188,7 @@ class BuildTest(unittest.TestCase):
         resulting avar segment still contains the default axis value maps:
         {-1.0: -1.0, 0.0: 0.0, 1.0: 1.0}.
 
-        This is again to to work around an issue with some rasterizers:
+        This is again to work around an issue with some rasterizers:
         https://github.com/googlei18n/fontmake/issues/295
         https://github.com/fonttools/fonttools/issues/1011
         """
@@ -184,6 +199,50 @@ class BuildTest(unittest.TestCase):
             tables=['avar'],
             expected_ttx_name=test_name
         )
+
+    def test_varlib_build_feature_variations(self):
+        """Designspace file contains <rules> element, used to build
+        GSUB FeatureVariations table.
+        """
+        self._run_varlib_build_test(
+            designspace_name="FeatureVars",
+            font_name="TestFamily",
+            tables=["fvar", "GSUB"],
+            expected_ttx_name="FeatureVars",
+            save_before_dump=True,
+        )
+
+    def test_varlib_gvar_explicit_delta(self):
+        """The variable font contains a composite glyph odieresis which does not
+        need a gvar entry, because all its deltas are 0, but it must be added
+        anyway to work around an issue with macOS 10.14.
+
+        https://github.com/fonttools/fonttools/issues/1381
+        """
+        test_name = 'BuildGvarCompositeExplicitDelta'
+        self._run_varlib_build_test(
+            designspace_name=test_name,
+            font_name='TestFamily4',
+            tables=['gvar'],
+            expected_ttx_name=test_name
+        )
+
+    def test_varlib_build_CFF2(self):
+        ds_path = self.get_test_input('TestCFF2.designspace')
+        suffix = '.otf'
+        expected_ttx_name = 'BuildTestCFF2'
+        tables = ["fvar", "CFF2"]
+
+        finder = lambda s: s.replace('.ufo', suffix)
+        varfont, model, _ = build(ds_path, finder)
+        # some data (e.g. counts printed in TTX inline comments) is only
+        # calculated at compile time, so before we can compare the TTX
+        # dumps we need to save to a temporary stream, and realod the font
+        varfont = reload_font(varfont)
+
+        expected_ttx_path = self.get_test_output(expected_ttx_name + '.ttx')
+        self.expect_ttx(varfont, expected_ttx_path, tables)
+        self.check_ttx_dump(varfont, expected_ttx_path, tables, suffix)
 
     def test_varlib_main_ttf(self):
         """Mostly for testing varLib.main()
@@ -230,6 +289,44 @@ class BuildTest(unittest.TestCase):
         tables = [table_tag for table_tag in varfont.keys() if table_tag != 'head']
         expected_ttx_path = self.get_test_output('BuildMain.ttx')
         self.expect_ttx(varfont, expected_ttx_path, tables)
+
+    def test_varlib_build_from_ds_object(self):
+        ds_path = self.get_test_input("Build.designspace")
+        ttx_dir = self.get_test_input("master_ttx_interpolatable_ttf")
+        expected_ttx_path = self.get_test_output("BuildMain.ttx")
+
+        self.temp_dir()
+        for path in self.get_file_list(ttx_dir, '.ttx', 'TestFamily-'):
+            self.compile_font(path, ".ttf", self.tempdir)
+
+        ds = DesignSpaceDocument.fromfile(ds_path)
+        for source in ds.sources:
+            filename = os.path.join(
+                self.tempdir, os.path.basename(source.filename).replace(".ufo", ".ttf")
+            )
+            source.font = TTFont(
+                filename, recalcBBoxes=False, recalcTimestamp=False, lazy=True
+            )
+            source.filename = None  # Make sure no file path gets into build()
+
+        varfont, _, _ = build(ds)
+        varfont = reload_font(varfont)
+        tables = [table_tag for table_tag in varfont.keys() if table_tag != "head"]
+        self.expect_ttx(varfont, expected_ttx_path, tables)
+
+
+def test_load_masters_layerName_without_required_font():
+    ds = DesignSpaceDocument()
+    s = SourceDescriptor()
+    s.font = None
+    s.layerName = "Medium"
+    ds.addSource(s)
+
+    with pytest.raises(
+        AttributeError,
+        match="specified a layer name but lacks the required TTFont object",
+    ):
+        load_masters(ds)
 
 
 if __name__ == "__main__":

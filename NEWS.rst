@@ -1,3 +1,159 @@
+3.35.0 (released 2019-01-07)
+----------------------------
+
+- [psCharStrings] In ``encodeFloat`` function, use float's "general format" with
+  8 digits of precision (i.e. ``%8g``) instead of ``str()``. This works around
+  a macOS rendering issue when real numbers in CFF table are too long, and
+  also makes sure that floats are encoded with the same precision in python 2.7
+  and 3.x (#1430, googlei18n/ufo2ft#306).
+- [_n_a_m_e/fontBuilder] Make ``_n_a_m_e_table.addMultilingualName`` also add
+  Macintosh (platformID=1) names by default. Added options to ``FontBuilder``
+  ``setupNameTable`` method to optionally disable Macintosh or Windows names.
+  (#1359, #1431).
+- [varLib] Make ``build`` optionally accept a ``DesignSpaceDocument`` object,
+  instead of a designspace file path. The caller can now set the ``font``
+  attribute of designspace's sources to a TTFont object, thus allowing to
+  skip filenames manipulation altogether (#1416, #1425).
+- [sfnt] Allow SFNTReader objects to be deep-copied.
+- Require typing>=3.6.4 on py27 to fix issue with singledispatch (#1423).
+- [designspaceLib/t1Lib/macRes] Fixed some cases where pathlib.Path objects were
+  not accepted (#1421).
+- [varLib] Fixed merging of multiple PairPosFormat2 subtables (#1411).
+- [varLib] The default STAT table version is now set to 1.1, to improve
+  compatibility with legacy applications (#1413).
+
+3.34.2 (released 2018-12-17)
+----------------------------
+
+- [merge] Fixed AssertionError when none of the script tables in GPOS/GSUB have
+  a DefaultLangSys record (#1408, 135a4a1).
+
+3.34.1 (released 2018-12-17)
+----------------------------
+
+- [varLib] Work around macOS rendering issue for composites without gvar entry (#1381).
+
+3.34.0 (released 2018-12-14)
+----------------------------
+
+- [varLib] Support generation of CFF2 variable fonts. ``model.reorderMasters()``
+  now supports arbitrary mapping. Fix handling of overlapping ranges for feature
+  variations (#1400).
+- [cffLib, subset] Code clean-up and fixing related to CFF2 support.
+- [ttLib.tables.ttProgram] Use raw strings for regex patterns (#1389).
+- [fontbuilder] Initial support for building CFF2 fonts. Set CFF's
+  ``FontMatrix`` automatically from unitsPerEm.
+- [plistLib] Accept the more general ``collections.Mapping`` instead of the
+  specific ``dict`` class to support custom data classes that should serialize
+  to dictionaries.
+
+3.33.0 (released 2018-11-30)
+----------------------------
+- [subset] subsetter bug fix with variable fonts.
+- [varLib.featureVar] Improve FeatureVariations generation with many rules.
+- [varLib] Enable sparse masters when building variable fonts:
+  https://github.com/fonttools/fonttools/pull/1368#issuecomment-437257368
+- [varLib.mutator] Add IDEF for GETVARIATION opcode, for handling hints in an
+  instance.
+- [ttLib] Ignore the length of kern table subtable format 0
+
+3.32.0 (released 2018-11-01)
+----------------------------
+
+- [ufoLib] Make ``UFOWriter`` a subclass of ``UFOReader``, and use mixins
+  for shared methods (#1344).
+- [featureVars] Fixed normalization error when a condition's minimum/maximum
+  attributes are missing in designspace ``<rule>`` (#1366).
+- [setup.py] Added ``[plot]`` to extras, to optionally install ``matplotlib``,
+  needed to use the ``fonTools.varLib.plot`` module.
+- [varLib] Take total bounding box into account when resolving model (7ee81c8).
+  If multiple axes have the same range ratio, cut across both (62003f4).
+- [subset] Don't error if ``STAT`` has no ``AxisValue`` tables.
+- [fontBuilder] Added a new submodule which contains a ``FontBuilder`` wrapper
+  class around ``TTFont`` that makes it easier to create a working TTF or OTF
+  font from scratch with code. NOTE: the API is still experimental and may
+  change in future versions.
+
+3.31.0 (released 2018-10-21)
+----------------------------
+
+- [ufoLib] Merged the `ufoLib <https://github.com/unified-font-objects/ufoLib>`__
+  master branch into a new ``fontTools.ufoLib`` package (#1335, #1095).
+  Moved ``ufoLib.pointPen`` module to ``fontTools.pens.pointPen``.
+  Moved ``ufoLib.etree`` module to ``fontTools.misc.etree``.
+  Moved ``ufoLib.plistlib`` module to ``fontTools.misc.plistlib``.
+  To use the new ``fontTools.ufoLib`` module you need to install fonttools
+  with the ``[ufo]`` extra, or you can manually install the required additional
+  dependencies (cf. README.rst).
+- [morx] Support AAT action type to insert glyphs and clean up compilation
+  of AAT action tables (4a1871f, 2011ccf).
+- [subset] The ``--no-hinting`` on a CFF font now also drops the optional
+  hinting keys in Private dict: ``ForceBold``, ``LanguageGroup``, and
+  ``ExpansionFactor`` (#1322).
+- [subset] Include nameIDs referenced by STAT table (#1327).
+- [loggingTools] Added ``msg=None`` argument to
+  ``CapturingLogHandler.assertRegex`` (0245f2c).
+- [varLib.mutator] Implemented ``FeatureVariations`` instantiation (#1244).
+- [g_l_y_f] Added PointPen support to ``_TTGlyph`` objects (#1334).
+
+3.30.0 (released 2018-09-18)
+----------------------------
+
+- [feaLib] Skip building noop class PairPos subtables when Coverage is NULL
+  (#1318).
+- [ttx] Expose the previously reserved bit flag ``OVERLAP_SIMPLE`` of
+  glyf table's contour points in the TTX dump. This is used in some
+  implementations to specify a non-zero fill with overlapping contours (#1316).
+- [ttLib] Added support for decompiling/compiling ``TS1C`` tables containing
+  VTT sources for ``cvar`` variation table (#1310).
+- [varLib] Use ``fontTools.designspaceLib`` to read DesignSpaceDocument. The
+  ``fontTools.varLib.designspace`` module is now deprecated and will be removed
+  in future versions. The presence of an explicit ``axes`` element is now
+  required in order to build a variable font (#1224, #1313).
+- [varLib] Implemented building GSUB FeatureVariations table from the ``rules``
+  element of DesignSpace document (#1240, #713, #1314).
+- [subset] Added ``--no-layout-closure`` option to not expand the subset with
+  the glyphs produced by OpenType layout features. Instead, OpenType features
+  will be subset to only rules that are relevant to the otherwise-specified
+  glyph set (#43, #1121).
+
+3.29.1 (released 2018-09-10)
+----------------------------
+
+- [feaLib] Fixed issue whereby lookups from DFLT/dflt were not included in the
+  DFLT/non-dflt language systems (#1307).
+- [graphite] Fixed issue on big-endian architectures (e.g. ppc64) (#1311).
+- [subset] Added ``--layout-scripts`` option to add/exclude set of OpenType
+  layout scripts that will be preserved. By default all scripts are retained
+  (``'*'``) (#1303).
+
+3.29.0 (released 2018-07-26)
+----------------------------
+
+- [feaLib] In the OTL table builder, when the ``name`` table is excluded
+  from the list of tables to be build, skip compiling ``featureNames`` blocks,
+  as the records referenced in ``FeatureParams`` table don't exist (68951b7).
+- [otBase] Try ``ExtensionLookup`` if other offset-overflow methods fail
+  (05f95f0).
+- [feaLib] Added support for explicit ``subtable;`` break statements in
+  PairPos lookups; previously these were ignored (#1279, #1300, #1302).
+- [cffLib.specializer] Make sure the stack depth does not exceed maxstack - 1,
+  so that a subroutinizer can insert subroutine calls (#1301,
+  https://github.com/googlei18n/ufo2ft/issues/266).
+- [otTables] Added support for fixing offset overflow errors occurring inside
+  ``MarkBasePos`` subtables (#1297).
+- [subset] Write the default output file extension based on ``--flavor`` option,
+  or the value of ``TTFont.sfntVersion`` (d7ac0ad).
+- [unicodedata] Updated Blocks, Scripts and ScriptExtensions for Unicode 11
+  (452c85e).
+- [xmlWriter] Added context manager to XMLWriter class to autoclose file
+  descriptor on exit (#1290).
+- [psCharStrings] Optimize the charstring's bytecode by encoding as integers
+  all float values that have no decimal portion (8d7774a).
+- [ttFont] Fixed missing import of ``TTLibError`` exception (#1285).
+- [feaLib] Allow any languages other than ``dflt`` under ``DFLT`` script
+  (#1278, #1292).
+
 3.28.0 (released 2018-06-19)
 ----------------------------
 

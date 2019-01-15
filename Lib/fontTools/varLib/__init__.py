@@ -23,7 +23,7 @@ from __future__ import unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools.misc.arrayTools import Vector
-from fontTools.ttLib import TTFont, newTable
+from fontTools.ttLib import TTFont, newTable, TTLibError
 from fontTools.ttLib.tables._n_a_m_e import NameRecord
 from fontTools.ttLib.tables._f_v_a_r import Axis, NamedInstance
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
@@ -31,13 +31,16 @@ from fontTools.ttLib.tables.ttProgram import Program
 from fontTools.ttLib.tables.TupleVariation import TupleVariation
 from fontTools.ttLib.tables import otTables as ot
 from fontTools.ttLib.tables.otBase import OTTableWriter
-from fontTools.varLib import builder, designspace, models, varStore
-from fontTools.varLib.merger import VariationMerger, _all_equal
+from fontTools.varLib import builder, models, varStore
+from fontTools.varLib.merger import VariationMerger
 from fontTools.varLib.mvar import MVAR_ENTRIES
 from fontTools.varLib.iup import iup_delta_optimize
-from collections import OrderedDict
+from fontTools.varLib.featureVars import addFeatureVariations
+from fontTools.designspaceLib import DesignSpaceDocument, AxisDescriptor
+from collections import OrderedDict, namedtuple
 import os.path
 import logging
+from copy import deepcopy
 from pprint import pformat
 
 log = logging.getLogger("fontTools.varLib")
@@ -73,7 +76,7 @@ def _add_fvar(font, axes, instances):
 		axis.axisTag = Tag(a.tag)
 		# TODO Skip axes that have no variation.
 		axis.minValue, axis.defaultValue, axis.maxValue = a.minimum, a.default, a.maximum
-		axis.axisNameID = nameTable.addName(tounicode(a.labelname['en']))
+		axis.axisNameID = nameTable.addName(tounicode(a.labelNames['en']))
 		# TODO:
 		# Replace previous line with the following when the following issues are resolved:
 		# https://github.com/fonttools/fonttools/issues/930
@@ -82,9 +85,9 @@ def _add_fvar(font, axes, instances):
 		fvar.axes.append(axis)
 
 	for instance in instances:
-		coordinates = instance['location']
-		name = tounicode(instance['stylename'])
-		psname = instance.get('postscriptfontname')
+		coordinates = instance.location
+		name = tounicode(instance.styleName)
+		psname = instance.postScriptFontName
 
 		inst = NamedInstance()
 		inst.subfamilyNameID = nameTable.addName(name)
@@ -104,7 +107,7 @@ def _add_avar(font, axes):
 	"""
 	Add 'avar' table to font.
 
-	axes is an ordered dictionary of DesignspaceAxis objects.
+	axes is an ordered dictionary of AxisDescriptor objects.
 	"""
 
 	assert axes
@@ -127,7 +130,7 @@ def _add_avar(font, axes):
 		if not axis.map:
 			continue
 
-		items = sorted(axis.map.items())
+		items = sorted(axis.map)
 		keys = [item[0] for item in items]
 		vals = [item[1] for item in items]
 
@@ -182,7 +185,7 @@ def _add_stat(font, axes):
 
 	STAT = font["STAT"] = newTable('STAT')
 	stat = STAT.table = ot.STAT()
-	stat.Version = 0x00010002
+	stat.Version = 0x00010001
 
 	axisRecords = []
 	for i, a in enumerate(fvarTable.axes):
@@ -278,7 +281,7 @@ def _SetCoordinates(font, glyphName, coord):
 	# XXX Handle vertical
 	font["hmtx"].metrics[glyphName] = horizontalAdvanceWidth, leftSideBearing
 
-def _add_gvar(font, model, master_ttfs, tolerance=0.5, optimize=True):
+def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 
 	assert tolerance >= 0
 
@@ -289,13 +292,19 @@ def _add_gvar(font, model, master_ttfs, tolerance=0.5, optimize=True):
 	gvar.reserved = 0
 	gvar.variations = {}
 
+	glyf = font['glyf']
+
 	for glyph in font.getGlyphOrder():
 
+		isComposite = glyf[glyph].isComposite()
+
 		allData = [_GetCoordinates(m, glyph) for m in master_ttfs]
+		model, allData = masterModel.getSubModel(allData)
+
 		allCoords = [d[0] for d in allData]
 		allControls = [d[1] for d in allData]
 		control = allControls[0]
-		if (any(c != control for c in allControls)):
+		if not models.allEqual(allControls):
 			log.warning("glyph %s has incompatible masters; skipping" % glyph)
 			continue
 		del allControls
@@ -311,13 +320,23 @@ def _add_gvar(font, model, master_ttfs, tolerance=0.5, optimize=True):
 		endPts = control[1] if control[0] >= 1 else list(range(len(control[1])))
 
 		for i,(delta,support) in enumerate(zip(deltas[1:], supports[1:])):
-			if all(abs(v) <= tolerance for v in delta.array):
+			if all(abs(v) <= tolerance for v in delta.array) and not isComposite:
 				continue
 			var = TupleVariation(support, delta)
 			if optimize:
 				delta_opt = iup_delta_optimize(delta, origCoords, endPts, tolerance=tolerance)
 
 				if None in delta_opt:
+					"""In composite glyphs, there should be one 0 entry
+					to make sure the gvar entry is written to the font.
+
+					This is to work around an issue with macOS 10.14 and can be
+					removed once the behaviour of macOS is changed.
+
+					https://github.com/fonttools/fonttools/issues/1381
+					"""
+					if all(d is None for d in delta_opt):
+						delta_opt = [(0, 0)] + [None] * (len(delta_opt) - 1)
 					# Use "optimized" version only if smaller...
 					var_opt = TupleVariation(support, delta_opt)
 
@@ -342,7 +361,7 @@ def _remove_TTHinting(font):
 	font["glyf"].removeHinting()
 	# TODO: Modify gasp table to deactivate gridfitting for all ranges?
 
-def _merge_TTHinting(font, model, master_ttfs, tolerance=0.5):
+def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
 
 	log.info("Merging TT hinting")
 	assert "cvar" not in font
@@ -370,7 +389,7 @@ def _merge_TTHinting(font, model, master_ttfs, tolerance=0.5):
 		all_pgms = [
 			m["glyf"][name].program
 			for m in master_ttfs
-			if hasattr(m["glyf"][name], "program")
+			if name in m['glyf'] and hasattr(m["glyf"][name], "program")
 		]
 		if not any(all_pgms):
 			continue
@@ -381,24 +400,21 @@ def _merge_TTHinting(font, model, master_ttfs, tolerance=0.5):
 			font_pgm = Program()
 		if any(pgm != font_pgm for pgm in all_pgms if pgm):
 			log.warning("Masters have incompatible glyph programs in glyph '%s', hinting is discarded." % name)
+			# TODO Only drop hinting from this glyph.
 			_remove_TTHinting(font)
 			return
 
 	# cvt table
 
-	all_cvs = [Vector(m["cvt "].values) for m in master_ttfs if "cvt " in m]
-	
-	if len(all_cvs) == 0:
+	all_cvs = [Vector(m["cvt "].values) if 'cvt ' in m else None
+		   for m in master_ttfs]
+
+	nonNone_cvs = models.nonNone(all_cvs)
+	if not nonNone_cvs:
 		# There is no cvt table to make a cvar table from, we're done here.
 		return
 
-	if len(all_cvs) != len(master_ttfs):
-		log.warning("Some masters have no cvt table, hinting is discarded.")
-		_remove_TTHinting(font)
-		return
-
-	num_cvt0 = len(all_cvs[0])
-	if (any(len(c) != num_cvt0 for c in all_cvs)):
+	if not models.allEqual(len(c) for c in nonNone_cvs):
 		log.warning("Masters have incompatible cvt tables, hinting is discarded.")
 		_remove_TTHinting(font)
 		return
@@ -409,8 +425,7 @@ def _merge_TTHinting(font, model, master_ttfs, tolerance=0.5):
 	cvar.version = 1
 	cvar.variations = []
 
-	deltas = model.getDeltas(all_cvs)
-	supports = model.supports
+	deltas, supports = masterModel.getDeltasAndSupports(all_cvs)
 	for i,(delta,support) in enumerate(zip(deltas[1:], supports[1:])):
 		delta = [otRound(d) for d in delta]
 		if all(abs(v) <= tolerance for v in delta):
@@ -418,54 +433,59 @@ def _merge_TTHinting(font, model, master_ttfs, tolerance=0.5):
 		var = TupleVariation(support, delta)
 		cvar.variations.append(var)
 
-def _add_HVAR(font, model, master_ttfs, axisTags):
+def _add_HVAR(font, masterModel, master_ttfs, axisTags):
 
 	log.info("Generating HVAR")
 
-	hAdvanceDeltas = {}
+	glyphOrder = font.getGlyphOrder()
+
+	hAdvanceDeltasAndSupports = {}
 	metricses = [m["hmtx"].metrics for m in master_ttfs]
-	for glyph in font.getGlyphOrder():
-		hAdvances = [metrics[glyph][0] for metrics in metricses]
-		# TODO move round somewhere else?
-		hAdvanceDeltas[glyph] = tuple(otRound(d) for d in model.getDeltas(hAdvances)[1:])
+	for glyph in glyphOrder:
+		hAdvances = [metrics[glyph][0] if glyph in metrics else None for metrics in metricses]
+		hAdvanceDeltasAndSupports[glyph] = masterModel.getDeltasAndSupports(hAdvances)
 
-	# Direct mapping
-	supports = model.supports[1:]
-	varTupleList = builder.buildVarRegionList(supports, axisTags)
-	varTupleIndexes = list(range(len(supports)))
-	n = len(supports)
-	items = []
-	for glyphName in font.getGlyphOrder():
-		items.append(hAdvanceDeltas[glyphName])
+	singleModel = models.allEqual(id(v[1]) for v in hAdvanceDeltasAndSupports.values())
 
-	# Build indirect mapping to save on duplicates, compare both sizes
-	uniq = list(set(items))
-	mapper = {v:i for i,v in enumerate(uniq)}
-	mapping = [mapper[item] for item in items]
-	advanceMapping = builder.buildVarIdxMap(mapping, font.getGlyphOrder())
+	directStore = None
+	if singleModel:
+		# Build direct mapping
 
-	# Direct
-	varData = builder.buildVarData(varTupleIndexes, items)
-	directStore = builder.buildVarStore(varTupleList, [varData])
+		supports = next(iter(hAdvanceDeltasAndSupports.values()))[1][1:]
+		varTupleList = builder.buildVarRegionList(supports, axisTags)
+		varTupleIndexes = list(range(len(supports)))
+		varData = builder.buildVarData(varTupleIndexes, [], optimize=False)
+		for glyphName in glyphOrder:
+			varData.addItem(hAdvanceDeltasAndSupports[glyphName][0])
+		varData.optimize()
+		directStore = builder.buildVarStore(varTupleList, [varData])
 
-	# Indirect
-	varData = builder.buildVarData(varTupleIndexes, uniq)
-	indirectStore = builder.buildVarStore(varTupleList, [varData])
-	mapping = indirectStore.optimize()
-	advanceMapping.mapping = {k:mapping[v] for k,v in advanceMapping.mapping.items()}
+	# Build optimized indirect mapping
+	storeBuilder = varStore.OnlineVarStoreBuilder(axisTags)
+	mapping = {}
+	for glyphName in glyphOrder:
+		deltas,supports = hAdvanceDeltasAndSupports[glyphName]
+		storeBuilder.setSupports(supports)
+		mapping[glyphName] = storeBuilder.storeDeltas(deltas)
+	indirectStore = storeBuilder.finish()
+	mapping2 = indirectStore.optimize()
+	mapping = [mapping2[mapping[g]] for g in glyphOrder]
+	advanceMapping = builder.buildVarIdxMap(mapping, glyphOrder)
 
-	# Compile both, see which is more compact
+	use_direct = False
+	if directStore:
+		# Compile both, see which is more compact
 
-	writer = OTTableWriter()
-	directStore.compile(writer, font)
-	directSize = len(writer.getAllData())
+		writer = OTTableWriter()
+		directStore.compile(writer, font)
+		directSize = len(writer.getAllData())
 
-	writer = OTTableWriter()
-	indirectStore.compile(writer, font)
-	advanceMapping.compile(writer, font)
-	indirectSize = len(writer.getAllData())
+		writer = OTTableWriter()
+		indirectStore.compile(writer, font)
+		advanceMapping.compile(writer, font)
+		indirectSize = len(writer.getAllData())
 
-	use_direct = directSize < indirectSize
+		use_direct = directSize < indirectSize
 
 	# Done; put it all together.
 	assert "HVAR" not in font
@@ -480,12 +500,11 @@ def _add_HVAR(font, model, master_ttfs, axisTags):
 		hvar.VarStore = indirectStore
 		hvar.AdvWidthMap = advanceMapping
 
-def _add_MVAR(font, model, master_ttfs, axisTags):
+def _add_MVAR(font, masterModel, master_ttfs, axisTags):
 
 	log.info("Generating MVAR")
 
 	store_builder = varStore.OnlineVarStoreBuilder(axisTags)
-	store_builder.setModel(model)
 
 	records = []
 	lastTableTag = None
@@ -495,17 +514,20 @@ def _add_MVAR(font, model, master_ttfs, axisTags):
 		if tableTag != lastTableTag:
 			tables = fontTable = None
 			if tableTag in font:
-				# TODO Check all masters have same table set?
 				fontTable = font[tableTag]
-				tables = [master[tableTag] for master in master_ttfs]
+				tables = [master[tableTag] if tableTag in master else None
+					  for master in master_ttfs]
 			lastTableTag = tableTag
 		if tables is None:
 			continue
 
 		# TODO support gasp entries
 
+		model, tables = masterModel.getSubModel(tables)
+		store_builder.setModel(model)
+
 		master_values = [getattr(table, itemName) for table in tables]
-		if _all_equal(master_values):
+		if models.allEqual(master_values):
 			base, varIdx = master_values[0], None
 		else:
 			base, varIdx = store_builder.storeMasters(master_values)
@@ -543,9 +565,7 @@ def _merge_OTL(font, model, master_fonts, axisTags):
 	log.info("Merging OpenType Layout tables")
 	merger = VariationMerger(model, axisTags, font)
 
-	merger.mergeTables(font, master_fonts, ['GPOS'])
-	# TODO Merge GSUB
-	# TODO Merge GDEF itself!
+	merger.mergeTables(font, master_fonts, ['GSUB', 'GDEF', 'GPOS'])
 	store = merger.store_builder.finish()
 	if not store.VarData:
 		return
@@ -566,52 +586,80 @@ def _merge_OTL(font, model, master_fonts, axisTags):
 		font['GPOS'].table.remap_device_varidxes(varidx_map)
 
 
+def _add_GSUB_feature_variations(font, axes, internal_axis_supports, rules):
 
-# Pretty much all of this file should be redesigned and moved inot submodules...
-# Such a mess right now, but kludging along...
-class _DesignspaceAxis(object):
+	def normalize(name, value):
+		return models.normalizeLocation(
+			{name: value}, internal_axis_supports
+		)[name]
 
-	def __repr__(self):
-		return repr(self.__dict__)
+	log.info("Generating GSUB FeatureVariations")
 
-	@staticmethod
-	def _map(v, map):
-		keys = map.keys()
-		if not keys:
-			return v
-		if v in keys:
-			return map[v]
-		k = min(keys)
-		if v < k:
-			return v + map[k] - k
-		k = max(keys)
-		if v > k:
-			return v + map[k] - k
-		# Interpolate
-		a = max(k for k in keys if k < v)
-		b = min(k for k in keys if k > v)
-		va = map[a]
-		vb = map[b]
-		return va + (vb - va) * (v - a) / (b - a)
+	axis_tags = {name: axis.tag for name, axis in axes.items()}
 
-	def map_forward(self, v):
-		if self.map is None: return v
-		return self._map(v, self.map)
+	conditional_subs = []
+	for rule in rules:
 
-	def map_backward(self, v):
-		if self.map is None: return v
-		map = {v:k for k,v in self.map.items()}
-		return self._map(v, map)
+		region = []
+		for conditions in rule.conditionSets:
+			space = {}
+			for condition in conditions:
+				axis_name = condition["name"]
+				if condition["minimum"] is not None:
+					minimum = normalize(axis_name, condition["minimum"])
+				else:
+					minimum = -1.0
+				if condition["maximum"] is not None:
+					maximum = normalize(axis_name, condition["maximum"])
+				else:
+					maximum = 1.0
+				tag = axis_tags[axis_name]
+				space[tag] = (minimum, maximum)
+			region.append(space)
+
+		subs = {k: v for k, v in rule.subs}
+
+		conditional_subs.append((region, subs))
+
+	addFeatureVariations(font, conditional_subs)
 
 
-def load_designspace(designspace_filename):
+_DesignSpaceData = namedtuple(
+	"_DesignSpaceData",
+	[
+		"axes",
+		"internal_axis_supports",
+		"base_idx",
+		"normalized_master_locs",
+		"masters",
+		"instances",
+		"rules",
+	],
+)
 
-	ds = designspace.load(designspace_filename)
-	axes = ds.get('axes')
-	masters = ds.get('sources')
+
+def _add_CFF2(varFont, model, master_fonts):
+	from .cff import (convertCFFtoCFF2, addCFFVarStore, merge_region_fonts)
+	glyphOrder = varFont.getGlyphOrder()
+	convertCFFtoCFF2(varFont)
+	ordered_fonts_list = model.reorderMasters(master_fonts, model.reverseMapping)
+	# re-ordering the master list simplifies building the CFF2 data item lists.
+	addCFFVarStore(varFont, model)  # Add VarStore to the CFF2 font.
+	merge_region_fonts(varFont, model, ordered_fonts_list, glyphOrder)
+
+
+def load_designspace(designspace):
+	# TODO: remove this and always assume 'designspace' is a DesignSpaceDocument,
+	# never a file path, as that's already handled by caller
+	if hasattr(designspace, "sources"):  # Assume a DesignspaceDocument
+		ds = designspace
+	else:  # Assume a file path
+		ds = DesignSpaceDocument.fromfile(designspace)
+
+	masters = ds.sources
 	if not masters:
 		raise VarLibError("no sources found in .designspace")
-	instances = ds.get('instances', [])
+	instances = ds.instances
 
 	standard_axis_map = OrderedDict([
 		('weight',  ('wght', {'en':'Weight'})),
@@ -620,70 +668,31 @@ def load_designspace(designspace_filename):
 		('optical', ('opsz', {'en':'Optical Size'})),
 		])
 
-
 	# Setup axes
-	axis_objects = OrderedDict()
-	if axes is not None:
-		for axis_dict in axes:
-			axis_name = axis_dict.get('name')
-			if not axis_name:
-				axis_name = axis_dict['name'] = axis_dict['tag']
-			if 'map' not in axis_dict:
-				axis_dict['map'] = None
-			else:
-				axis_dict['map'] = {m['input']:m['output'] for m in axis_dict['map']}
+	axes = OrderedDict()
+	for axis in ds.axes:
+		axis_name = axis.name
+		if not axis_name:
+			assert axis.tag is not None
+			axis_name = axis.name = axis.tag
 
-			if axis_name in standard_axis_map:
-				if 'tag' not in axis_dict:
-					axis_dict['tag'] = standard_axis_map[axis_name][0]
-				if 'labelname' not in axis_dict:
-					axis_dict['labelname'] = standard_axis_map[axis_name][1].copy()
+		if axis_name in standard_axis_map:
+			if axis.tag is None:
+				axis.tag = standard_axis_map[axis_name][0]
+			if not axis.labelNames:
+				axis.labelNames.update(standard_axis_map[axis_name][1])
+		else:
+			assert axis.tag is not None
+			if not axis.labelNames:
+				axis.labelNames["en"] = axis_name
 
-			axis = _DesignspaceAxis()
-			for item in ['name', 'tag', 'minimum', 'default', 'maximum', 'map']:
-				assert item in axis_dict, 'Axis does not have "%s"' % item
-			if 'labelname' not in axis_dict:
-				axis_dict['labelname'] = {'en': axis_name}
-			axis.__dict__ = axis_dict
-			axis_objects[axis_name] = axis
-	else:
-		# No <axes> element. Guess things...
-		base_idx = None
-		for i,m in enumerate(masters):
-			if 'info' in m and m['info']['copy']:
-				assert base_idx is None
-				base_idx = i
-		assert base_idx is not None, "Cannot find 'base' master; Either add <axes> element to .designspace document, or add <info> element to one of the sources in the .designspace document."
-
-		master_locs = [o['location'] for o in masters]
-		base_loc = master_locs[base_idx]
-		axis_names = set(base_loc.keys())
-		assert all(name in standard_axis_map for name in axis_names), "Non-standard axis found and there exist no <axes> element."
-
-		for name,(tag,labelname) in standard_axis_map.items():
-			if name not in axis_names:
-				continue
-
-			axis = _DesignspaceAxis()
-			axis.name = name
-			axis.tag = tag
-			axis.labelname = labelname.copy()
-			axis.default = base_loc[name]
-			axis.minimum = min(m[name] for m in master_locs if name in m)
-			axis.maximum = max(m[name] for m in master_locs if name in m)
-			axis.map = None
-			# TODO Fill in weight / width mapping from OS/2 table? Need loading fonts...
-			axis_objects[name] = axis
-		del base_idx, base_loc, axis_names, master_locs
-	axes = axis_objects
-	del axis_objects
-	log.info("Axes:\n%s", pformat(axes))
-
+		axes[axis_name] = axis
+	log.info("Axes:\n%s", pformat([axis.asdict() for axis in axes.values()]))
 
 	# Check all master and instance locations are valid and fill in defaults
 	for obj in masters+instances:
-		obj_name = obj.get('name', obj.get('stylename', ''))
-		loc = obj['location']
+		obj_name = obj.name or obj.styleName or ''
+		loc = obj.location
 		for axis_name in loc.keys():
 			assert axis_name in axes, "Location axis '%s' unknown for '%s'." % (axis_name, obj_name)
 		for axis_name,axis in axes.items():
@@ -693,10 +702,9 @@ def load_designspace(designspace_filename):
 				v = axis.map_backward(loc[axis_name])
 				assert axis.minimum <= v <= axis.maximum, "Location for axis '%s' (mapped to %s) out of range for '%s' [%s..%s]" % (axis_name, v, obj_name, axis.minimum, axis.maximum)
 
-
 	# Normalize master locations
 
-	internal_master_locs = [o['location'] for o in masters]
+	internal_master_locs = [o.location for o in masters]
 	log.info("Internal master locations:\n%s", pformat(internal_master_locs))
 
 	# TODO This mapping should ideally be moved closer to logic in _add_fvar/avar
@@ -709,7 +717,6 @@ def load_designspace(designspace_filename):
 	normalized_master_locs = [models.normalizeLocation(m, internal_axis_supports) for m in internal_master_locs]
 	log.info("Normalized master locations:\n%s", pformat(normalized_master_locs))
 
-
 	# Find base master
 	base_idx = None
 	for i,m in enumerate(normalized_master_locs):
@@ -719,10 +726,18 @@ def load_designspace(designspace_filename):
 	assert base_idx is not None, "Base master not found; no master at default location?"
 	log.info("Index of base master: %s", base_idx)
 
-	return axes, internal_axis_supports, base_idx, normalized_master_locs, masters, instances
+	return _DesignSpaceData(
+		axes,
+		internal_axis_supports,
+		base_idx,
+		normalized_master_locs,
+		masters,
+		instances,
+		ds.rules,
+	)
 
 
-def build(designspace_filename, master_finder=lambda s:s, exclude=[], optimize=True):
+def build(designspace, master_finder=lambda s:s, exclude=[], optimize=True):
 	"""
 	Build variation font from a designspace file.
 
@@ -730,34 +745,45 @@ def build(designspace_filename, master_finder=lambda s:s, exclude=[], optimize=T
 	filename as found in designspace file and map it to master font
 	binary as to be opened (eg. .ttf or .otf).
 	"""
+	if hasattr(designspace, "sources"):  # Assume a DesignspaceDocument
+		pass
+	else:  # Assume a file path
+		designspace = DesignSpaceDocument.fromfile(designspace)
 
-	axes, internal_axis_supports, base_idx, normalized_master_locs, masters, instances = load_designspace(designspace_filename)
-
+	ds = load_designspace(designspace)
 	log.info("Building variable font")
+
 	log.info("Loading master fonts")
-	basedir = os.path.dirname(designspace_filename)
-	master_ttfs = [master_finder(os.path.join(basedir, m['filename'])) for m in masters]
-	master_fonts = [TTFont(ttf_path) for ttf_path in master_ttfs]
-	# Reload base font as target font
-	vf = TTFont(master_ttfs[base_idx])
+	master_fonts = load_masters(designspace, master_finder)
+
+	# TODO: 'master_ttfs' is unused except for return value, remove later
+	master_ttfs = []
+	for master in master_fonts:
+		try:
+			master_ttfs.append(master.reader.file.name)
+		except AttributeError:
+			master_ttfs.append(None)  # in-memory fonts have no path
+
+	# Copy the base master to work from it
+	vf = deepcopy(master_fonts[ds.base_idx])
 
 	# TODO append masters as named-instances as well; needs .designspace change.
-	fvar = _add_fvar(vf, axes, instances)
+	fvar = _add_fvar(vf, ds.axes, ds.instances)
 	if 'STAT' not in exclude:
-		_add_stat(vf, axes)
+		_add_stat(vf, ds.axes)
 	if 'avar' not in exclude:
-		_add_avar(vf, axes)
-	del instances
+		_add_avar(vf, ds.axes)
 
 	# Map from axis names to axis tags...
-	normalized_master_locs = [{axes[k].tag:v for k,v in loc.items()} for loc in normalized_master_locs]
-	#del axes
+	normalized_master_locs = [
+		{ds.axes[k].tag: v for k,v in loc.items()} for loc in ds.normalized_master_locs
+	]
 	# From here on, we use fvar axes only
 	axisTags = [axis.axisTag for axis in fvar.axes]
 
 	# Assume single-model for now.
 	model = models.VariationModel(normalized_master_locs, axisOrder=axisTags)
-	assert 0 == model.mapping[base_idx]
+	assert 0 == model.mapping[ds.base_idx]
 
 	log.info("Building variations tables")
 	if 'MVAR' not in exclude:
@@ -770,12 +796,65 @@ def build(designspace_filename, master_finder=lambda s:s, exclude=[], optimize=T
 		_add_gvar(vf, model, master_fonts, optimize=optimize)
 	if 'cvar' not in exclude and 'glyf' in vf:
 		_merge_TTHinting(vf, model, master_fonts)
+	if 'GSUB' not in exclude and ds.rules:
+		_add_GSUB_feature_variations(vf, ds.axes, ds.internal_axis_supports, ds.rules)
+	if 'CFF2' not in exclude and 'CFF ' in vf:
+		_add_CFF2(vf, model, master_fonts)
 
 	for tag in exclude:
 		if tag in vf:
 			del vf[tag]
 
+	# TODO: Only return vf for 4.0+, the rest is unused.
 	return vf, model, master_ttfs
+
+
+def load_masters(designspace, master_finder=lambda s: s):
+	"""Ensure that all SourceDescriptor.font attributes have an appropriate TTFont
+	object loaded, or else open TTFont objects from the SourceDescriptor.path
+	attributes.
+
+	The paths can point to either an OpenType font or to a UFO. In the latter case,
+	use the provided master_finder callable to map from UFO paths to the respective
+	master font binaries (e.g. .ttf or .otf).
+
+	Return list of master TTFont objects in the same order they are listed in the
+	DesignSpaceDocument.
+	"""
+	master_fonts = []
+
+	for master in designspace.sources:
+		# 1. If the caller already supplies a TTFont for a source, just take it.
+		if master.font:
+			font = master.font
+			master_fonts.append(font)
+		else:
+			# If a SourceDescriptor has a layer name, demand that the compiled TTFont
+			# be supplied by the caller. This spares us from modifying MasterFinder.
+			if master.layerName:
+				raise AttributeError(
+					"Designspace source '%s' specified a layer name but lacks the "
+					"required TTFont object in the 'font' attribute."
+					% (master.name or "<Unknown>")
+			)
+			else:
+				if master.path is None:
+					raise AttributeError(
+						"Designspace source '%s' has neither 'font' nor 'path' "
+						"attributes" % (master.name or "<Unknown>")
+					)
+				# 2. A SourceDescriptor's path might point to a UFO or an OpenType
+				# binary. Find out the hard way.
+				master_path = os.path.normpath(master.path)
+				try:
+					font = TTFont(master_path)
+				except (IOError, TTLibError):
+					# 3. Not an OpenType binary, fall back to the master finder.
+					master_path = master_finder(master_path)
+					font = TTFont(master_path)
+				master_fonts.append(font)
+
+	return master_fonts
 
 
 class MasterFinder(object):
@@ -850,7 +929,7 @@ def main(args=None):
 	if outfile is None:
 		outfile = os.path.splitext(designspace_filename)[0] + '-VF.ttf'
 
-	vf, model, master_ttfs = build(
+	vf, _, _ = build(
 		designspace_filename,
 		finder,
 		exclude=options.exclude,
