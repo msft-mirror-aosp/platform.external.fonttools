@@ -298,7 +298,7 @@ class SubsetTest(unittest.TestCase):
         self.expect_ttx(subsetfont, self.getpath("expect_prop_1.ttx"), ["prop"])
 
     def test_options(self):
-        # https://github.com/behdad/fonttools/issues/413
+        # https://github.com/fonttools/fonttools/issues/413
         opt1 = subset.Options()
         self.assertTrue('Xyz-' not in opt1.layout_features)
         opt2 = subset.Options()
@@ -416,8 +416,18 @@ class SubsetTest(unittest.TestCase):
         self.expect_ttx(subsetfont, self.getpath(
             "expect_desubroutinize_CFF.ttx"), ["CFF "])
 
+    def test_desubroutinize_hinted_subrs_CFF(self):
+        ttxpath = self.getpath("test_hinted_subrs_CFF.ttx")
+        _, fontpath = self.compile_font(ttxpath, ".otf")
+        subsetpath = self.temp_path(".otf")
+        subset.main([fontpath, "--desubroutinize", "--notdef-outline",
+                     "--output-file=%s" % subsetpath, "*"])
+        subsetfont = TTFont(subsetpath)
+        self.expect_ttx(subsetfont, self.getpath(
+            "test_hinted_subrs_CFF.desub.ttx"), ["CFF "])
+
     def test_no_hinting_desubroutinize_CFF(self):
-        ttxpath = self.getpath("Lobster.subset.ttx")
+        ttxpath = self.getpath("test_hinted_subrs_CFF.ttx")
         _, fontpath = self.compile_font(ttxpath, ".otf")
         subsetpath = self.temp_path(".otf")
         subset.main([fontpath, "--no-hinting", "--desubroutinize", "--notdef-outline",

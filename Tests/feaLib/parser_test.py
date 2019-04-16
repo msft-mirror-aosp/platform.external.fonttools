@@ -408,7 +408,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(smcp.statements[0].glyphSet(), ("a", "b", "s"))
 
     def test_glyphclass_scoping_bug496(self):
-        # https://github.com/behdad/fonttools/issues/496
+        # https://github.com/fonttools/fonttools/issues/496
         f1, f2 = self.parse(
             "feature F1 { lookup L { @GLYPHCLASS = [A B C];} L; } F1;"
             "feature F2 { sub @GLYPHCLASS by D; } F2;"
@@ -677,6 +677,7 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(flag.value, 9)
         self.assertIsNone(flag.markAttachment)
         self.assertIsNone(flag.markFilteringSet)
+        self.assertEqual(flag.asFea(), "lookupflag RightToLeft IgnoreMarks;")
 
     def test_lookupflag_format_A_MarkAttachmentType(self):
         flag = self.parse_lookupflag_(
@@ -688,6 +689,8 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(flag.markAttachment.glyphSet(),
                          ("acute", "grave", "macron"))
         self.assertIsNone(flag.markFilteringSet)
+        self.assertEqual(flag.asFea(),
+            "lookupflag RightToLeft MarkAttachmentType @TOP_MARKS;")
 
     def test_lookupflag_format_A_UseMarkFilteringSet(self):
         flag = self.parse_lookupflag_(
@@ -699,6 +702,8 @@ class ParserTest(unittest.TestCase):
         self.assertIsInstance(flag.markFilteringSet, ast.GlyphClassName)
         self.assertEqual(flag.markFilteringSet.glyphSet(),
                          ("cedilla", "ogonek"))
+        self.assertEqual(flag.asFea(),
+            "lookupflag IgnoreLigatures UseMarkFilteringSet @BOTTOM_MARKS;")
 
     def test_lookupflag_format_B(self):
         flag = self.parse_lookupflag_("lookupflag 7;")
@@ -706,6 +711,23 @@ class ParserTest(unittest.TestCase):
         self.assertEqual(flag.value, 7)
         self.assertIsNone(flag.markAttachment)
         self.assertIsNone(flag.markFilteringSet)
+        self.assertEqual(flag.asFea(),
+            "lookupflag RightToLeft IgnoreBaseGlyphs IgnoreLigatures;")
+
+    def test_lookupflag_format_B_zero(self):
+        flag = self.parse_lookupflag_("lookupflag 0;")
+        self.assertIsInstance(flag, ast.LookupFlagStatement)
+        self.assertEqual(flag.value, 0)
+        self.assertIsNone(flag.markAttachment)
+        self.assertIsNone(flag.markFilteringSet)
+        self.assertEqual(flag.asFea(), "lookupflag 0;")
+
+    def test_lookupflag_no_value(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'lookupflag must have a value',
+            self.parse,
+            "feature test {lookupflag;} test;")
 
     def test_lookupflag_repeated(self):
         self.assertRaisesRegex(
@@ -775,6 +797,26 @@ class ParserTest(unittest.TestCase):
         [(glyphs, value)] = pos.pos
         self.assertEqual(glyphstr([glyphs]), "[T Y]")
         self.assertEqual(value.asFea(), "20")
+        self.assertEqual(glyphstr(pos.prefix), "[A B]")
+        self.assertEqual(glyphstr(pos.suffix), "comma")
+
+    def test_gpos_type_1_chained_special_kern_format_valuerecord_format_a(self):
+        doc = self.parse("feature kern {pos [A B] [T Y]' comma 20;} kern;")
+        pos = doc.statements[0].statements[0]
+        self.assertIsInstance(pos, ast.SinglePosStatement)
+        [(glyphs, value)] = pos.pos
+        self.assertEqual(glyphstr([glyphs]), "[T Y]")
+        self.assertEqual(value.asFea(), "20")
+        self.assertEqual(glyphstr(pos.prefix), "[A B]")
+        self.assertEqual(glyphstr(pos.suffix), "comma")
+
+    def test_gpos_type_1_chained_special_kern_format_valuerecord_format_b(self):
+        doc = self.parse("feature kern {pos [A B] [T Y]' comma <0 0 0 0>;} kern;")
+        pos = doc.statements[0].statements[0]
+        self.assertIsInstance(pos, ast.SinglePosStatement)
+        [(glyphs, value)] = pos.pos
+        self.assertEqual(glyphstr([glyphs]), "[T Y]")
+        self.assertEqual(value.asFea(), "<0 0 0 0>")
         self.assertEqual(glyphstr(pos.prefix), "[A B]")
         self.assertEqual(glyphstr(pos.suffix), "comma")
 
@@ -1268,6 +1310,14 @@ class ParserTest(unittest.TestCase):
         self.assertIsInstance(sub, ast.MultipleSubstStatement)
         self.assertEqual(sub.glyph, "f_f_i")
         self.assertEqual(sub.replacement, ("f", "f", "i"))
+
+    def test_substitute_multiple_force_chained(self):
+        doc = self.parse("lookup L {sub f_f_i' by f f i;} L;")
+        sub = doc.statements[0].statements[0]
+        self.assertIsInstance(sub, ast.MultipleSubstStatement)
+        self.assertEqual(sub.glyph, "f_f_i")
+        self.assertEqual(sub.replacement, ("f", "f", "i"))
+        self.assertEqual(sub.asFea(), "sub f_f_i' by f f i;")
 
     def test_substitute_multiple_by_mutliple(self):
         self.assertRaisesRegex(

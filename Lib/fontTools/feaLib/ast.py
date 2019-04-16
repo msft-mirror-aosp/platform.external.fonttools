@@ -102,7 +102,8 @@ fea_keywords = set([
     "required", "righttoleft", "reversesub", "rsub",
     "script", "sub", "substitute", "subtable",
     "table",
-    "usemarkfilteringset", "useextension", "valuerecorddef"]
+    "usemarkfilteringset", "useextension", "valuerecorddef",
+    "base", "gdef", "head", "hhea", "name", "vhea", "vmtx"]
 )
 
 
@@ -159,7 +160,7 @@ class GlyphName(Expression):
         return (self.glyph,)
 
     def asFea(self, indent=""):
-        return str(self.glyph)
+        return asFea(self.glyph)
 
 
 class GlyphClass(Expression):
@@ -425,7 +426,7 @@ class MarkClass(object):
         return tuple(self.glyphs.keys())
 
     def asFea(self, indent=""):
-        res = "\n".join(d.asFea(indent=indent) for d in self.definitions)
+        res = "\n".join(d.asFea() for d in self.definitions)
         return res
 
 
@@ -440,8 +441,8 @@ class MarkClassDefinition(Statement):
         return self.glyphs.glyphSet()
 
     def asFea(self, indent=""):
-        return "{}markClass {} {} @{};".format(
-            indent, self.glyphs.asFea(), self.anchor.asFea(),
+        return "markClass {} {} @{};".format(
+            self.glyphs.asFea(), self.anchor.asFea(),
             self.markClass.name)
 
 
@@ -820,19 +821,20 @@ class LookupFlagStatement(Statement):
                                 markAttach, markFilter)
 
     def asFea(self, indent=""):
-        res = "lookupflag"
+        res = []
         flags = ["RightToLeft", "IgnoreBaseGlyphs", "IgnoreLigatures", "IgnoreMarks"]
         curr = 1
         for i in range(len(flags)):
             if self.value & curr != 0:
-                res += " " + flags[i]
+                res.append(flags[i])
             curr = curr << 1
         if self.markAttachment is not None:
-            res += " MarkAttachmentType {}".format(self.markAttachment.asFea())
+            res.append("MarkAttachmentType {}".format(self.markAttachment.asFea()))
         if self.markFilteringSet is not None:
-            res += " UseMarkFilteringSet {}".format(self.markFilteringSet.asFea())
-        res += ";"
-        return res
+            res.append("UseMarkFilteringSet {}".format(self.markFilteringSet.asFea()))
+        if not res:
+            res = ["0"]
+        return "lookupflag {};".format(" ".join(res))
 
 
 class LookupReferenceStatement(Statement):
@@ -904,20 +906,24 @@ class MarkMarkPosStatement(Statement):
 
 
 class MultipleSubstStatement(Statement):
-    def __init__(self, prefix, glyph, suffix, replacement, location=None):
+    def __init__(
+        self, prefix, glyph, suffix, replacement, forceChain=False, location=None
+    ):
         Statement.__init__(self, location)
         self.prefix, self.glyph, self.suffix = prefix, glyph, suffix
         self.replacement = replacement
+        self.forceChain = forceChain
 
     def build(self, builder):
         prefix = [p.glyphSet() for p in self.prefix]
         suffix = [s.glyphSet() for s in self.suffix]
         builder.add_multiple_subst(
-            self.location, prefix, self.glyph, suffix, self.replacement)
+            self.location, prefix, self.glyph, suffix, self.replacement,
+            self.forceChain)
 
     def asFea(self, indent=""):
         res = "sub "
-        if len(self.prefix) or len(self.suffix):
+        if len(self.prefix) or len(self.suffix) or self.forceChain:
             if len(self.prefix):
                 res += " ".join(map(asFea, self.prefix)) + " "
             res += asFea(self.glyph) + "'"
@@ -1087,7 +1093,7 @@ class SubtableStatement(Statement):
         builder.add_subtable_break(self.location)
 
     def asFea(self, indent=""):
-        return indent + "subtable;"
+        return "subtable;"
 
 
 class ValueRecord(Expression):

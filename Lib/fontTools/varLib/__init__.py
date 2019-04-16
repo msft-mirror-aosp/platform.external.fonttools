@@ -209,8 +209,40 @@ def _add_stat(font, axes):
 	# TODO make this user-configurable via designspace document
 	stat.ElidedFallbackNameID = 2
 
+
+def _get_phantom_points(font, glyphName, defaultVerticalOrigin=None):
+	glyf = font["glyf"]
+	glyph = glyf[glyphName]
+	horizontalAdvanceWidth, leftSideBearing = font["hmtx"].metrics[glyphName]
+	if not hasattr(glyph, 'xMin'):
+		glyph.recalcBounds(glyf)
+	leftSideX = glyph.xMin - leftSideBearing
+	rightSideX = leftSideX + horizontalAdvanceWidth
+	if "vmtx" in font:
+		verticalAdvanceWidth, topSideBearing = font["vmtx"].metrics[glyphName]
+		topSideY = topSideBearing + glyph.yMax
+	else:
+		# without vmtx, use ascent as vertical origin and UPEM as vertical advance
+		# like HarfBuzz does
+		verticalAdvanceWidth = font["head"].unitsPerEm
+		try:
+			topSideY = font["hhea"].ascent
+		except KeyError:
+			# sparse masters may not contain an hhea table; use the ascent
+			# of the default master as the vertical origin
+			assert defaultVerticalOrigin is not None
+			topSideY = defaultVerticalOrigin
+	bottomSideY = topSideY - verticalAdvanceWidth
+	return [
+		(leftSideX, 0),
+		(rightSideX, 0),
+		(0, topSideY),
+		(0, bottomSideY),
+	]
+
+
 # TODO Move to glyf or gvar table proper
-def _GetCoordinates(font, glyphName):
+def _GetCoordinates(font, glyphName, defaultVerticalOrigin=None):
 	"""font, glyphName --> glyph coordinates as expected by "gvar" table
 
 	The result includes four "phantom points" for the glyph metrics,
@@ -228,19 +260,9 @@ def _GetCoordinates(font, glyphName):
 		control = (glyph.numberOfContours,)+allData[1:]
 
 	# Add phantom points for (left, right, top, bottom) positions.
-	horizontalAdvanceWidth, leftSideBearing = font["hmtx"].metrics[glyphName]
-	if not hasattr(glyph, 'xMin'):
-		glyph.recalcBounds(glyf)
-	leftSideX = glyph.xMin - leftSideBearing
-	rightSideX = leftSideX + horizontalAdvanceWidth
-	# XXX these are incorrect.  Load vmtx and fix.
-	topSideY = glyph.yMax
-	bottomSideY = -glyph.yMin
+	phantomPoints = _get_phantom_points(font, glyphName, defaultVerticalOrigin)
 	coord = coord.copy()
-	coord.extend([(leftSideX, 0),
-	              (rightSideX, 0),
-	              (0, topSideY),
-	              (0, bottomSideY)])
+	coord.extend(phantomPoints)
 
 	return coord, control
 
@@ -297,11 +319,16 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 
 	glyf = font['glyf']
 
+	# use hhea.ascent of base master as default vertical origin when vmtx is missing
+	defaultVerticalOrigin = font['hhea'].ascent
 	for glyph in font.getGlyphOrder():
 
 		isComposite = glyf[glyph].isComposite()
 
-		allData = [_GetCoordinates(m, glyph) for m in master_ttfs]
+		allData = [
+			_GetCoordinates(m, glyph, defaultVerticalOrigin=defaultVerticalOrigin)
+			for m in master_ttfs
+		]
 		model, allData = masterModel.getSubModel(allData)
 
 		allCoords = [d[0] for d in allData]
@@ -521,7 +548,11 @@ def _add_MVAR(font, masterModel, master_ttfs, axisTags):
 	# the minimum FWord (int16) value, was chosen for its unlikelyhood to appear
 	# in real-world underline position/thickness values.
 	specialTags = {"unds": -0x8000, "undo": -0x8000}
+
 	for tag, (tableTag, itemName) in sorted(MVAR_ENTRIES.items(), key=lambda kv: kv[1]):
+		# For each tag, fetch the associated table from all fonts (or not when we are
+		# still looking at a tag from the same tables) and set up the variation model
+		# for them.
 		if tableTag != lastTableTag:
 			tables = fontTable = None
 			if tableTag in font:
@@ -535,14 +566,14 @@ def _add_MVAR(font, masterModel, master_ttfs, axisTags):
 						tables.append(None)
 					else:
 						tables.append(master[tableTag])
+				model, tables = masterModel.getSubModel(tables)
+				store_builder.setModel(model)
 			lastTableTag = tableTag
-		if tables is None:
+
+		if tables is None:  # Tag not applicable to the master font.
 			continue
 
 		# TODO support gasp entries
-
-		model, tables = masterModel.getSubModel(tables)
-		store_builder.setModel(model)
 
 		master_values = [getattr(table, itemName) for table in tables]
 		if models.allEqual(master_values):
@@ -684,6 +715,7 @@ def load_designspace(designspace):
 		('width',   ('wdth', {'en': u'Width'})),
 		('slant',   ('slnt', {'en': u'Slant'})),
 		('optical', ('opsz', {'en': u'Optical Size'})),
+		('italic',  ('ital', {'en': u'Italic'})),
 		])
 
 	# Setup axes
@@ -886,7 +918,7 @@ def load_masters(designspace, master_finder=lambda s: s):
 				# 2. A SourceDescriptor's path might point an OpenType binary, a
 				# TTX file, or another source file (e.g. UFO), in which case we
 				# resolve the path using 'master_finder' function
-				font = _open_font(master.path, master_finder)
+				master.font = font = _open_font(master.path, master_finder)
 				master_fonts.append(font)
 
 	return master_fonts

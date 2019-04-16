@@ -1,3 +1,72 @@
+3.39.0 (released 2019-03-19)
+----------------------------
+
+- [ttLib/glyf] Raise more specific error when encountering recursive
+  component references (#1545, #1546).
+- [Doc/designspaceLib] Defined new ``public.skipExportGlyphs`` lib key (#1534,
+  unified-font-object/ufo-spec#84).
+- [varLib] Use ``vmtx`` to compute vertical phantom points; or ``hhea.ascent``
+  and ``head.unitsPerEM`` if ``vmtx`` is missing (#1528).
+- [gvar/cvar] Sort XML element's min/value/max attributes in TupleVariation
+  toXML to improve readability of TTX dump (#1527).
+- [varLib.plot] Added support for 2D plots with only 1 variation axis (#1522).
+- [designspaceLib] Use axes maps when normalizing locations in
+  DesignSpaceDocument (#1226, #1521), and when finding default source (#1535).
+- [mutator] Set ``OVERLAP_SIMPLE`` and ``OVERLAP_COMPOUND`` glyf flags by
+  default in ``instantiateVariableFont``. Added ``--no-overlap`` cli option
+  to disable this (#1518).
+- [subset] Fixed subsetting ``VVAR`` table (#1516, #1517).  
+  Fixed subsetting an ``HVAR`` table that has an ``AdvanceWidthMap`` when the
+  option ``--retain-gids`` is used.
+- [feaLib] Added ``forceChained`` in MultipleSubstStatement (#1511).  
+  Fixed double indentation of ``subtable`` statement (#1512).  
+  Added support for ``subtable`` statement in more places than just PairPos
+  lookups (#1520).  
+  Handle lookupflag 0 and lookupflag without a value (#1540).
+- [varLib] In ``load_designspace``, provide a default English name for the
+  ``ital`` axis tag.
+- Remove pyftinspect because it is unmaintained and bitrotted.
+
+3.38.0 (released 2019-02-18)
+----------------------------
+
+- [cffLib] Fixed RecursionError when unpickling or deepcopying TTFont with
+  CFF table (#1488, 649dc49).
+- [subset] Fixed AttributeError when using --desubroutinize option (#1490).
+  Also, fixed desubroutinizing bug when subrs contain hints (#1499).
+- [CPAL] Make Color a subclass of namedtuple (173a0f5).
+- [feaLib] Allow hyphen in glyph class names.
+- [feaLib] Added 'tables' option to __main__.py (#1497).
+- [feaLib] Add support for special-case contextual positioning formatting
+  (#1501).
+- [svgLib] Support converting SVG basic shapes (rect, circle, etc.) into
+  equivalent SVG paths (#1500, #1508).
+- [Snippets] Added name-viewer.ipynb Jupyter notebook.
+
+
+3.37.3 (released 2019-02-05)
+----------------------------
+
+- The previous release accidentally changed several files from Unix to DOS
+  line-endings. Fix that.
+
+3.37.2 (released 2019-02-05)
+----------------------------
+
+- [varLib] Temporarily revert the fix to ``load_masters()``, which caused a
+  crash in ``interpolate_layout()`` when ``deepcopy``-ing OTFs.
+
+3.37.1 (released 2019-02-05)
+----------------------------
+
+- [varLib] ``load_masters()`` now actually assigns the fonts it loads to the
+  source.font attributes.
+- [varLib] Fixed an MVAR table generation crash when sparse masters were
+  involved.
+- [voltLib] ``parse_coverage_()`` returns a tuple instead of an ast.Enum.
+- [feaLib] A MarkClassDefinition inside a block is no longer doubly indented
+  compared to the rest of the block.
+
 3.37.0 (released 2019-01-28)
 ----------------------------
 
