@@ -1,3 +1,61 @@
+3.41.2 (released 2019-05-13)
+----------------------------
+
+- [cffLib] Fixed issue when importing a ``CFF2`` variable font from XML, whereby
+  the VarStore state was not propagated to PrivateDict (#1598).
+- [varLib] Don't drop ``post`` glyph names when building CFF2 variable font (#1609).
+
+
+3.41.1 (released 2019-05-13)
+----------------------------
+
+- [designspaceLib] Added ``loadSourceFonts`` method to load source fonts using
+  custom opener function (#1606).
+- [head] Round font bounding box coordinates to integers to fix compile error
+  if CFF font has float coordinates (#1604, #1605).
+- [feaLib] Don't write ``None`` in ``ast.ValueRecord.asFea()`` (#1599).
+- [subset] Fixed issue ``AssertionError`` when using ``--desubroutinize`` option
+  (#1590, #1594).
+- [graphite] Fixed bug in ``Silf`` table's ``decompile`` method unmasked by
+  previous typo fix (#1597). Decode languange code as UTF-8 in ``Sill`` table's
+  ``decompile`` method (#1600).
+
+3.41.0 (released 2019-04-29)
+----------------------------
+
+- [varLib/cffLib] Added support for building ``CFF2`` variable font from sparse
+  masters, or masters with more than one model (multiple ``VarStore.VarData``).
+  In ``cffLib.specializer``, added support for ``CFF2`` CharStrings with
+  ``blend`` operators (#1547, #1591).
+- [subset] Fixed subsetting ``HVAR`` and ``VVAR`` with ``--retain-gids`` option,
+  and when advances mapping is null while sidebearings mappings are non-null
+  (#1587, #1588).
+- Added ``otlLib.maxContextCalc`` module to compute ``OS/2.usMaxContext`` value.
+  Calculate it automatically when compiling features with feaLib. Added option
+  ``--recalc-max-context`` to ``subset`` module (#1582).
+- [otBase/otTables] Fixed ``AttributeError`` on missing OT table fields after
+  importing font from TTX (#1584).
+- [graphite] Fixed typo ``Silf`` table's ``decompile`` method (#1586).
+- [otlLib] Better compress ``GPOS`` SinglePos (LookupType 1) subtables (#1539).
+
+3.40.0 (released 2019-04-08)
+----------------------------
+
+- [subset] Fixed error while subsetting ``VVAR`` with ``--retain-gids``
+  option (#1552).
+- [designspaceLib] Use up-to-date default location in ``findDefault`` method
+  (#1554).
+- [voltLib] Allow passing file-like object to Parser.
+- [arrayTools/glyf] ``calcIntBounds`` (used to compute bounding boxes of glyf
+  table's glyphs) now uses ``otRound`` instead of ``round3`` (#1566).
+- [svgLib] Added support for converting more SVG shapes to path ``d`` strings
+  (ellipse, line, polyline), as well as support for ``transform`` attributes.
+  Only ``matrix`` transformations are currently supported (#1564, #1564).
+- [varLib] Added support for building ``VVAR`` table from ``vmtx`` and ``VORG``
+  tables (#1551).
+- [fontBuilder] Enable making CFF2 fonts with ``post`` table format 2 (#1557).
+- Fixed ``DeprecationWarning`` on invalid escape sequences (#1562).
+
 3.39.0 (released 2019-03-19)
 ----------------------------
 
