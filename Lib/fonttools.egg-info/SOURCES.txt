@@ -328,8 +328,6 @@ Snippets/otf2ttf.py
 Snippets/rename-fonts.py
 Snippets/subset-fpgm.py
 Snippets/svg2glif.py
-Snippets/woff2_compress.py
-Snippets/woff2_decompress.py
 Tests/agl_test.py
 Tests/merge_test.py
 Tests/unicodedata_test.py
@@ -648,6 +646,7 @@ Tests/pens/reverseContourPen_test.py
 Tests/pens/t2CharStringPen_test.py
 Tests/pens/ttGlyphPen_test.py
 Tests/subset/subset_test.py
+Tests/subset/data/Lobster.subset.otf
 Tests/subset/data/Lobster.subset.ttx
 Tests/subset/data/NotdefWidthCID-Regular.ttx
 Tests/subset/data/TestANKR.ttx
@@ -682,6 +681,7 @@ Tests/subset/data/expect_keep_gvar_notdef_outline.ttx
 Tests/subset/data/expect_keep_math.ttx
 Tests/subset/data/expect_lcar_0.ttx
 Tests/subset/data/expect_lcar_1.ttx
+Tests/subset/data/expect_math_partial.ttx
 Tests/subset/data/expect_no_hinting_CFF.ttx
 Tests/subset/data/expect_no_hinting_TTF.ttx
 Tests/subset/data/expect_no_hinting_desubroutinize_CFF.ttx
@@ -698,6 +698,7 @@ Tests/subset/data/test_cntrmask_CFF.desub.ttx
 Tests/subset/data/test_cntrmask_CFF.ttx
 Tests/subset/data/test_hinted_subrs_CFF.desub.ttx
 Tests/subset/data/test_hinted_subrs_CFF.ttx
+Tests/subset/data/test_math_partial.ttx
 Tests/svgLib/path/__init__.py
 Tests/svgLib/path/parser_test.py
 Tests/svgLib/path/path_test.py
@@ -1442,13 +1443,21 @@ Tests/varLib/data/FeatureVars.designspace
 Tests/varLib/data/InterpolateLayout.designspace
 Tests/varLib/data/InterpolateLayout2.designspace
 Tests/varLib/data/InterpolateLayout3.designspace
+Tests/varLib/data/KerningMerging.designspace
 Tests/varLib/data/SparseMasters.designspace
 Tests/varLib/data/TestCFF2.designspace
+Tests/varLib/data/TestNonMarkingCFF2.designspace
 Tests/varLib/data/TestSparseCFF2VF.designspace
 Tests/varLib/data/TestVVAR.designspace
+Tests/varLib/data/test_vpal.designspace
 Tests/varLib/data/master_cff2/TestCFF2_Black.ttx
 Tests/varLib/data/master_cff2/TestCFF2_ExtraLight.ttx
 Tests/varLib/data/master_cff2/TestCFF2_Regular.ttx
+Tests/varLib/data/master_kerning_merging/0.ttx
+Tests/varLib/data/master_kerning_merging/1.ttx
+Tests/varLib/data/master_kerning_merging/2.ttx
+Tests/varLib/data/master_non_marking_cff2/TestNonMarkingCFF2_ExtraLight.ttx
+Tests/varLib/data/master_non_marking_cff2/TestNonMarkingCFF2_Regular.ttx
 Tests/varLib/data/master_sparse_cff2/MasterSet_Kanji-w0.00.ttx
 Tests/varLib/data/master_sparse_cff2/MasterSet_Kanji-w1000.00.ttx
 Tests/varLib/data/master_sparse_cff2/MasterSet_Kanji-w439.00.ttx
@@ -1747,6 +1756,8 @@ Tests/varLib/data/master_ufo/TestFamily4-Regular.ufo/glyphs.public.background/co
 Tests/varLib/data/master_ufo/TestFamily4-Regular.ufo/glyphs.public.background/dieresiscomb.glif
 Tests/varLib/data/master_ufo/TestFamily4-Regular.ufo/glyphs.public.background/n.glif
 Tests/varLib/data/master_ufo/TestFamily4-Regular.ufo/glyphs.public.background/o.glif
+Tests/varLib/data/master_vpal_test/master_vpal_test_0.ttx
+Tests/varLib/data/master_vpal_test/master_vpal_test_1.ttx
 Tests/varLib/data/master_vvar_cff2/TestVVAR.0.ttx
 Tests/varLib/data/master_vvar_cff2/TestVVAR.1.ttx
 Tests/varLib/data/test_results/Build.ttx
@@ -1785,7 +1796,9 @@ Tests/varLib/data/test_results/Mutator.ttx
 Tests/varLib/data/test_results/Mutator_Getvar-instance.ttx
 Tests/varLib/data/test_results/Mutator_IUP-instance.ttx
 Tests/varLib/data/test_results/SparseMasters.ttx
+Tests/varLib/data/test_results/TestNonMarkingCFF2.ttx
 Tests/varLib/data/test_results/TestSparseCFF2VF.ttx
 Tests/varLib/data/test_results/TestVVAR.ttx
+Tests/varLib/data/test_results/test_vpal.ttx
 Tests/voltLib/lexer_test.py
 Tests/voltLib/parser_test.py
