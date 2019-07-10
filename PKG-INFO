@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 3.43.1
+Version: 3.43.2
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -414,6 +414,12 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        3.43.2 (released 2019-07-10)
+        ----------------------------
+        
+        - [featureVars] Fixed region-merging code on python3 (#1659).
+        - [varLib.cff] Fixed merging of sparse PrivateDict items (#1653).
         
         3.43.1 (released 2019-06-19)
         ----------------------------
@@ -1787,13 +1793,13 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
+Provides-Extra: plot
+Provides-Extra: unicode
+Provides-Extra: all
 Provides-Extra: lxml
 Provides-Extra: interpolatable
-Provides-Extra: unicode
+Provides-Extra: woff
+Provides-Extra: symfont
 Provides-Extra: type1
-Provides-Extra: all
 Provides-Extra: ufo
 Provides-Extra: graphite
-Provides-Extra: woff
-Provides-Extra: plot
-Provides-Extra: symfont
