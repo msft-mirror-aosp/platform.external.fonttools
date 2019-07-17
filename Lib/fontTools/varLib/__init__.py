@@ -23,8 +23,7 @@ from __future__ import unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools.misc.arrayTools import Vector
-from fontTools.ttLib import TTFont, newTable, TTLibError
-from fontTools.ttLib.tables._n_a_m_e import NameRecord
+from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import Axis, NamedInstance
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
 from fontTools.ttLib.tables.ttProgram import Program
@@ -36,7 +35,7 @@ from fontTools.varLib.merger import VariationMerger
 from fontTools.varLib.mvar import MVAR_ENTRIES
 from fontTools.varLib.iup import iup_delta_optimize
 from fontTools.varLib.featureVars import addFeatureVariations
-from fontTools.designspaceLib import DesignSpaceDocument, AxisDescriptor
+from fontTools.designspaceLib import DesignSpaceDocument
 from collections import OrderedDict, namedtuple
 import os.path
 import logging
@@ -857,6 +856,45 @@ def load_designspace(designspace):
 	)
 
 
+# https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass
+WDTH_VALUE_TO_OS2_WIDTH_CLASS = {
+	50: 1,
+	62.5: 2,
+	75: 3,
+	87.5: 4,
+	100: 5,
+	112.5: 6,
+	125: 7,
+	150: 8,
+	200: 9,
+}
+
+
+def set_default_weight_width_slant(font, location):
+	if "OS/2" in font:
+		if "wght" in location:
+			weight_class = otRound(max(1, min(location["wght"], 1000)))
+			if font["OS/2"].usWeightClass != weight_class:
+				log.info("Setting OS/2.usWidthClass = %s", weight_class)
+				font["OS/2"].usWeightClass = weight_class
+
+		if "wdth" in location:
+			# map 'wdth' axis (50..200) to OS/2.usWidthClass (1..9), rounding to closest
+			widthValue = min(max(location["wdth"], 50), 200)
+			widthClass = otRound(
+				models.piecewiseLinearMap(widthValue, WDTH_VALUE_TO_OS2_WIDTH_CLASS)
+			)
+			if font["OS/2"].usWidthClass != widthClass:
+				log.info("Setting OS/2.usWidthClass = %s", widthClass)
+				font["OS/2"].usWidthClass = widthClass
+
+	if "slnt" in location and "post" in font:
+		italicAngle = max(-90, min(location["slnt"], 90))
+		if font["post"].italicAngle != italicAngle:
+			log.info("Setting post.italicAngle = %s", italicAngle)
+			font["post"].italicAngle = italicAngle
+
+
 def build(designspace, master_finder=lambda s:s, exclude=[], optimize=True):
 	"""
 	Build variation font from a designspace file.
@@ -929,6 +967,10 @@ def build(designspace, master_finder=lambda s:s, exclude=[], optimize=True):
 				post.formatType = 2.0
 				post.extraNames = []
 				post.mapping = {}
+
+	set_default_weight_width_slant(
+		vf, location={axis.axisTag: axis.defaultValue for axis in vf["fvar"].axes}
+	)
 
 	for tag in exclude:
 		if tag in vf:
@@ -1046,16 +1088,24 @@ def main(args=None):
 			'name. The default value is "%(default)s".'
 		)
 	)
+	logging_group = parser.add_mutually_exclusive_group(required=False)
+	logging_group.add_argument(
+		"-v", "--verbose",
+                action="store_true",
+                help="Run more verbosely.")
+	logging_group.add_argument(
+		"-q", "--quiet",
+                action="store_true",
+                help="Turn verbosity off.")
 	options = parser.parse_args(args)
 
-	# TODO: allow user to configure logging via command-line options
-	configLogger(level="INFO")
+	configLogger(level=(
+		"DEBUG" if options.verbose else
+		"ERROR" if options.quiet else
+		"INFO"))
 
 	designspace_filename = options.designspace
 	finder = MasterFinder(options.master_finder)
-	outfile = options.outfile
-	if outfile is None:
-		outfile = os.path.splitext(designspace_filename)[0] + '-VF.ttf'
 
 	vf, _, _ = build(
 		designspace_filename,
@@ -1063,6 +1113,11 @@ def main(args=None):
 		exclude=options.exclude,
 		optimize=options.optimize
 	)
+
+	outfile = options.outfile
+	if outfile is None:
+		ext = "otf" if vf.sfntVersion == "OTTO" else "ttf"
+		outfile = os.path.splitext(designspace_filename)[0] + '-VF.' + ext
 
 	log.info("Saving variation font %s", outfile)
 	vf.save(outfile)

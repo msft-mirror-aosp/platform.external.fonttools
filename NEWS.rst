@@ -1,3 +1,54 @@
+3.43.2 (released 2019-07-10)
+----------------------------
+
+- [featureVars] Fixed region-merging code on python3 (#1659).
+- [varLib.cff] Fixed merging of sparse PrivateDict items (#1653).
+
+3.43.1 (released 2019-06-19)
+----------------------------
+
+- [subset] Fixed regression when passing ``--flavor=woff2`` option with an input font
+  that was already compressed as WOFF 1.0 (#1650).
+
+3.43.0 (released 2019-06-18)
+----------------------------
+
+- [woff2] Added support for compressing/decompressing WOFF2 fonts with non-transformed
+  ``glyf`` and ``loca`` tables, as well as with transformed ``hmtx`` table.
+  Removed ``Snippets/woff2_compress.py`` and ``Snippets/woff2_decompress.py`` scripts,
+  and replaced them with a new console entry point ``fonttools ttLib.woff2``
+  that provides two sub-commands ``compress`` and ``decompress``.
+- [varLib.cff] Fixed bug when merging CFF2 ``PrivateDicts``. The ``PrivateDict``
+  data from the first region font was incorrecty used for all subsequent fonts.
+  The bug would only affect variable CFF2 fonts with hinting (#1643, #1644).
+  Also, fixed a merging bug when VF masters have no blends or marking glyphs (#1632,
+  #1642).
+- [loggingTools] Removed unused backport of ``LastResortLogger`` class.
+- [subset] Gracefully handle partial MATH table (#1635).
+- [featureVars] Avoid duplicate references to ``rvrn`` feature record in
+  ``DefaultLangSys`` tables when calling ``addFeatureVariations`` on a font that
+  does not already have a ``GSUB`` table (aa8a5bc6).
+- [varLib] Fixed merging of class-based kerning. Before, the process could introduce
+  rogue kerning values and variations for random classes against class zero (everything
+  not otherwise classed).
+- [varLib] Fixed merging GPOS tables from master fonts with different number of
+  ``SinglePos`` subtables (#1621, #1641).
+- [unicodedata] Updated Blocks, Scripts and ScriptExtensions to Unicode 12.1.
+
+3.42.0 (released 2019-05-28)
+----------------------------
+
+- [OS/2] Fixed sign of ``fsType``: it should be ``uint16``, not ``int16`` (#1619).
+- [subset] Skip out-of-range class values in mark attachment (#1478).
+- [fontBuilder] Add an empty ``DSIG`` table with ``setupDummyDSIG`` method (#1621).
+- [varLib.merger] Fixed bug whereby ``GDEF.GlyphClassDef`` were being dropped
+  when generating instance via ``varLib.mutator`` (#1614).
+- [varLib] Added command-line options ``-v`` and ``-q`` to configure logging (#1613).
+- [subset] Update font extents in head table (#1612).
+- [subset] Make --retain-gids truncate empty glyphs after the last non-empty glyph
+  (#1611).
+- [requirements] Updated ``unicodedata2`` backport for Unicode 12.0.
+
 3.41.2 (released 2019-05-13)
 ----------------------------
 
