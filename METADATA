@@ -7,12 +7,12 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/fonttools/fonttools/releases/download/3.43.2/fonttools-3.43.2.zip"
+    value: "https://github.com/fonttools/fonttools/releases/download/3.44.0/fonttools-3.44.0.zip"
   }
-  version: "3.43.2"
+  version: "3.44.0"
   last_upgrade_date {
     year: 2019
-    month: 7
-    day: 10
+    month: 8
+    day: 2
   }
 }

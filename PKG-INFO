@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 3.43.2
+Version: 3.44.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -27,10 +27,10 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         FontTools requires `Python <http://www.python.org/download/>`__ 2.7, 3.4
         or later.
         
-        **NOTE** After January 1 2019, until no later than June 30 2019, the support
-        for *Python 2.7* will be limited to only bug fixes, and no new features will
-        be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
-        *Python 3.5* or above. You can read more `here <https://python3statement.org>`__
+        **NOTE** From August 2019, until no later than January 1 2020, the support
+        for *Python 2.7* will be limited to only critical bug fixes, and no new features
+        will be added to the ``py27`` branch. The upcoming FontTools 4.x series will require
+        *Python 3.6* or above. You can read more `here <https://python3statement.org>`__
         and `here <https://github.com/fonttools/fonttools/issues/765>`__ for the
         reasons behind this decision.
         
@@ -414,6 +414,24 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        3.44.0 (released 2019-08-02)
+        ----------------------------
+        
+        - NOTE: This is the last scheduled release to support Python 2.7. The upcoming fonttools
+          v4.x series is going to require Python 3.6 or greater.
+        - [varLib] Added new ``varLib.instancer`` module for partially instantiating variable
+          fonts. This extends (and will eventually replace) ``varLib.mutator`` module, as
+          it allows to create not just full static instances from a variable font, but also
+          "partial" or "less variable" fonts where some of the axes are dropped or
+          instantiated at a particular value.
+          Also available from the command-line as `fonttools varLib.instancer --help`
+          (#1537, #1628).
+        - [cffLib] Added support for ``FDSelect`` format 4 (#1677).
+        - [subset] Added support for subsetting ``sbix`` (Apple bitmap color font) table.
+        - [t1Lib] Fixed issue parsing ``eexec`` section in Type1 fonts when whitespace
+          characters are interspersed among the trailing zeros (#1676).
+        - [cffLib.specializer] Fixed bug in ``programToCommands`` with CFF2 charstrings (#1669).
         
         3.43.2 (released 2019-07-10)
         ----------------------------
@@ -1793,13 +1811,13 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
-Provides-Extra: plot
-Provides-Extra: unicode
-Provides-Extra: all
-Provides-Extra: lxml
-Provides-Extra: interpolatable
 Provides-Extra: woff
+Provides-Extra: all
 Provides-Extra: symfont
+Provides-Extra: interpolatable
+Provides-Extra: unicode
 Provides-Extra: type1
+Provides-Extra: lxml
 Provides-Extra: ufo
+Provides-Extra: plot
 Provides-Extra: graphite
