@@ -131,7 +131,7 @@ class MergeDictError(TypeError):
 
 
 def conv_to_int(num):
-	if num % 1 == 0:
+	if isinstance(num, float) and num.is_integer():
 		return int(num)
 	return num
 
@@ -161,7 +161,7 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 		For each key, step through each relevant source font Private dict, and
 		build a list of values to blend.
 	The 'relevant' source fonts are selected by first getting the right
-	submodel using model_keys[vsindex]. The indices of the
+	submodel using vsindex_dict[vsindex]. The indices of the
 	subModel.locations are mapped to source font list indices by
 	assuming the latter order is the same as the order of the
 	var_model.locations. I can then get the index of each subModel
@@ -180,7 +180,7 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 		# At the moment, no PrivateDict has a vsindex key, but let's support
 		# how it should work. See comment at end of
 		# merge_charstrings() - still need to optimize use of vsindex.
-		sub_model, model_keys = vsindex_dict[vsindex]
+		sub_model, _ = vsindex_dict[vsindex]
 		master_indices = []
 		for loc in sub_model.locations[1:]:
 			i = var_model.locations.index(loc) - 1
@@ -198,17 +198,17 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 			pds.append(pd)
 		num_masters = len(pds)
 		for key, value in private_dict.rawDict.items():
+			dataList = []
 			if key not in pd_blend_fields:
 				continue
 			if isinstance(value, list):
 				try:
 					values = [pd.rawDict[key] for pd in pds]
 				except KeyError:
-					del private_dict.rawDict[key]
 					print(
-						b"Warning: {key} in default font Private dict is "
-						b"missing from another font, and was "
-						b"discarded.".format(key=key))
+						"Warning: {key} in default font Private dict is "
+						"missing from another font, and was "
+						"discarded.".format(key=key))
 					continue
 				try:
 					values = zip(*values)
@@ -227,7 +227,6 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 				and is converted finally to:
 				OtherBlues = [[-217, 17.0, 46.0], [-205, 0.0, 0.0]]
 				"""
-				dataList = []
 				prev_val_list = [0] * num_masters
 				any_points_differ = False
 				for val_list in values:
@@ -237,8 +236,6 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 						any_points_differ = True
 					prev_val_list = val_list
 					deltas = sub_model.getDeltas(rel_list)
-					# Convert numbers with no decimal part to an int.
-					deltas = [conv_to_int(delta) for delta in deltas]
 					# For PrivateDict BlueValues, the default font
 					# values are absolute, not relative to the prior value.
 					deltas[0] = val_list[0]
@@ -253,6 +250,18 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 					dataList = sub_model.getDeltas(values)
 				else:
 					dataList = values[0]
+
+			# Convert numbers with no decimal part to an int
+			if isinstance(dataList, list):
+				for i, item in enumerate(dataList):
+					if isinstance(item, list):
+						for j, jtem in enumerate(item):
+							dataList[i][j] = conv_to_int(jtem)
+					else:
+						dataList[i] = conv_to_int(item)
+			else:
+				dataList = conv_to_int(dataList)
+
 			private_dict.rawDict[key] = dataList
 
 
@@ -270,7 +279,9 @@ def getfd_map(varFont, fonts_list):
 	num_regions = len(region_fonts)
 	topDict = default_font['CFF '].cff.topDictIndex[0]
 	if not hasattr(topDict, 'FDSelect'):
-		fd_map[0] = [0]*num_regions
+		# All glyphs reference only one FontDict.
+		# Map the FD index for regions to index 0.
+		fd_map[0] = {ri:0 for ri in range(num_regions)}
 		return fd_map
 
 	gname_mapping = {}
@@ -317,6 +328,19 @@ def _get_cs(charstrings, glyphName):
 		return None
 	return charstrings[glyphName]
 
+def _add_new_vsindex(model, key, masterSupports, vsindex_dict,
+		vsindex_by_key, varDataList):
+	varTupleIndexes = []
+	for support in model.supports[1:]:
+		if support not in masterSupports:
+			masterSupports.append(support)
+		varTupleIndexes.append(masterSupports.index(support))
+	var_data = varLib.builder.buildVarData(varTupleIndexes, None, False)
+	vsindex = len(vsindex_dict)
+	vsindex_by_key[key] = vsindex
+	vsindex_dict[vsindex] = (model, [key])
+	varDataList.append(var_data)
+	return vsindex
 
 def merge_charstrings(glyphOrder, num_masters, top_dicts, masterModel):
 
@@ -365,24 +389,24 @@ def merge_charstrings(glyphOrder, num_masters, top_dicts, masterModel):
 
 		# If the charstring required a new model, create
 		# a VarData table to go with, and set vsindex.
+		key = tuple(v is not None for v in all_cs)
 		try:
-			key = tuple(v is not None for v in all_cs)
 			vsindex = vsindex_by_key[key]
 		except KeyError:
-			varTupleIndexes = []
-			for support in model.supports[1:]:
-				if support not in masterSupports:
-					masterSupports.append(support)
-				varTupleIndexes.append(masterSupports.index(support))
-			var_data = varLib.builder.buildVarData(varTupleIndexes, None, False)
-			vsindex = len(vsindex_dict)
-			vsindex_by_key[key] = vsindex
-			vsindex_dict[vsindex] = (model, [key])
-			varDataList.append(var_data)
+			vsindex = _add_new_vsindex(model, key, masterSupports, vsindex_dict,
+				vsindex_by_key, varDataList)
 		# We do not need to check for an existing new_cs.private.vsindex,
 		# as we know it doesn't exist yet.
 		if vsindex != 0:
 			new_cs.program[:0] = [vsindex, 'vsindex']
+
+	# If there is no variation in any of the charstrings, then vsindex_dict
+	# never gets built. This could still be needed if there is variation
+	# in the PrivatDict, so we will build the default data for vsindex = 0.
+	if not vsindex_dict:
+		key = (True,) * num_masters
+		_add_new_vsindex(model, key, masterSupports, vsindex_dict,
+			vsindex_by_key, varDataList)
 	cvData = CVarData(varDataList=varDataList, masterSupports=masterSupports,
 						vsindex_dict=vsindex_dict)
 	# XXX To do: optimize use of vsindex between the PrivateDicts and

@@ -23,8 +23,7 @@ from __future__ import unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools.misc.arrayTools import Vector
-from fontTools.ttLib import TTFont, newTable, TTLibError
-from fontTools.ttLib.tables._n_a_m_e import NameRecord
+from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import Axis, NamedInstance
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
 from fontTools.ttLib.tables.ttProgram import Program
@@ -36,7 +35,7 @@ from fontTools.varLib.merger import VariationMerger
 from fontTools.varLib.mvar import MVAR_ENTRIES
 from fontTools.varLib.iup import iup_delta_optimize
 from fontTools.varLib.featureVars import addFeatureVariations
-from fontTools.designspaceLib import DesignSpaceDocument, AxisDescriptor
+from fontTools.designspaceLib import DesignSpaceDocument
 from collections import OrderedDict, namedtuple
 import os.path
 import logging
@@ -210,102 +209,6 @@ def _add_stat(font, axes):
 	stat.ElidedFallbackNameID = 2
 
 
-def _get_phantom_points(font, glyphName, defaultVerticalOrigin=None):
-	glyf = font["glyf"]
-	glyph = glyf[glyphName]
-	horizontalAdvanceWidth, leftSideBearing = font["hmtx"].metrics[glyphName]
-	if not hasattr(glyph, 'xMin'):
-		glyph.recalcBounds(glyf)
-	leftSideX = glyph.xMin - leftSideBearing
-	rightSideX = leftSideX + horizontalAdvanceWidth
-	if "vmtx" in font:
-		verticalAdvanceWidth, topSideBearing = font["vmtx"].metrics[glyphName]
-		topSideY = topSideBearing + glyph.yMax
-	else:
-		# without vmtx, use ascent as vertical origin and UPEM as vertical advance
-		# like HarfBuzz does
-		verticalAdvanceWidth = font["head"].unitsPerEm
-		try:
-			topSideY = font["hhea"].ascent
-		except KeyError:
-			# sparse masters may not contain an hhea table; use the ascent
-			# of the default master as the vertical origin
-			assert defaultVerticalOrigin is not None
-			topSideY = defaultVerticalOrigin
-	bottomSideY = topSideY - verticalAdvanceWidth
-	return [
-		(leftSideX, 0),
-		(rightSideX, 0),
-		(0, topSideY),
-		(0, bottomSideY),
-	]
-
-
-# TODO Move to glyf or gvar table proper
-def _GetCoordinates(font, glyphName, defaultVerticalOrigin=None):
-	"""font, glyphName --> glyph coordinates as expected by "gvar" table
-
-	The result includes four "phantom points" for the glyph metrics,
-	as mandated by the "gvar" spec.
-	"""
-	glyf = font["glyf"]
-	if glyphName not in glyf.glyphs: return None
-	glyph = glyf[glyphName]
-	if glyph.isComposite():
-		coord = GlyphCoordinates([(getattr(c, 'x', 0),getattr(c, 'y', 0)) for c in glyph.components])
-		control = (glyph.numberOfContours,[c.glyphName for c in glyph.components])
-	else:
-		allData = glyph.getCoordinates(glyf)
-		coord = allData[0]
-		control = (glyph.numberOfContours,)+allData[1:]
-
-	# Add phantom points for (left, right, top, bottom) positions.
-	phantomPoints = _get_phantom_points(font, glyphName, defaultVerticalOrigin)
-	coord = coord.copy()
-	coord.extend(phantomPoints)
-
-	return coord, control
-
-# TODO Move to glyf or gvar table proper
-def _SetCoordinates(font, glyphName, coord):
-	glyf = font["glyf"]
-	assert glyphName in glyf.glyphs
-	glyph = glyf[glyphName]
-
-	# Handle phantom points for (left, right, top, bottom) positions.
-	assert len(coord) >= 4
-	if not hasattr(glyph, 'xMin'):
-		glyph.recalcBounds(glyf)
-	leftSideX = coord[-4][0]
-	rightSideX = coord[-3][0]
-	topSideY = coord[-2][1]
-	bottomSideY = coord[-1][1]
-
-	for _ in range(4):
-		del coord[-1]
-
-	if glyph.isComposite():
-		assert len(coord) == len(glyph.components)
-		for p,comp in zip(coord, glyph.components):
-			if hasattr(comp, 'x'):
-				comp.x,comp.y = p
-	elif glyph.numberOfContours is 0:
-		assert len(coord) == 0
-	else:
-		assert len(coord) == len(glyph.coordinates)
-		glyph.coordinates = coord
-
-	glyph.recalcBounds(glyf)
-
-	horizontalAdvanceWidth = otRound(rightSideX - leftSideX)
-	if horizontalAdvanceWidth < 0:
-		# unlikely, but it can happen, see:
-		# https://github.com/fonttools/fonttools/pull/1198
-		horizontalAdvanceWidth = 0
-	leftSideBearing = otRound(glyph.xMin - leftSideX)
-	# XXX Handle vertical
-	font["hmtx"].metrics[glyphName] = horizontalAdvanceWidth, leftSideBearing
-
 def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 
 	assert tolerance >= 0
@@ -320,13 +223,13 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 	glyf = font['glyf']
 
 	# use hhea.ascent of base master as default vertical origin when vmtx is missing
-	defaultVerticalOrigin = font['hhea'].ascent
+	baseAscent = font['hhea'].ascent
 	for glyph in font.getGlyphOrder():
 
 		isComposite = glyf[glyph].isComposite()
 
 		allData = [
-			_GetCoordinates(m, glyph, defaultVerticalOrigin=defaultVerticalOrigin)
+			m["glyf"].getCoordinatesAndControls(glyph, m, defaultVerticalOrigin=baseAscent)
 			for m in master_ttfs
 		]
 		model, allData = masterModel.getSubModel(allData)
@@ -347,7 +250,7 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 
 		# Prepare for IUP optimization
 		origCoords = deltas[0]
-		endPts = control[1] if control[0] >= 1 else list(range(len(control[1])))
+		endPts = control.endPts
 
 		for i,(delta,support) in enumerate(zip(deltas[1:], supports[1:])):
 			if all(abs(v) <= tolerance for v in delta.array) and not isComposite:
@@ -463,20 +366,20 @@ def _merge_TTHinting(font, masterModel, master_ttfs, tolerance=0.5):
 		var = TupleVariation(support, delta)
 		cvar.variations.append(var)
 
-MetricsFields = namedtuple('MetricsFields',
+_MetricsFields = namedtuple('_MetricsFields',
 	['tableTag', 'metricsTag', 'sb1', 'sb2', 'advMapping', 'vOrigMapping'])
 
-hvarFields = MetricsFields(tableTag='HVAR', metricsTag='hmtx', sb1='LsbMap',
+HVAR_FIELDS = _MetricsFields(tableTag='HVAR', metricsTag='hmtx', sb1='LsbMap',
 	sb2='RsbMap', advMapping='AdvWidthMap', vOrigMapping=None)
 
-vvarFields = MetricsFields(tableTag='VVAR', metricsTag='vmtx', sb1='TsbMap',
+VVAR_FIELDS = _MetricsFields(tableTag='VVAR', metricsTag='vmtx', sb1='TsbMap',
 	sb2='BsbMap', advMapping='AdvHeightMap', vOrigMapping='VOrgMap')
 
 def _add_HVAR(font, masterModel, master_ttfs, axisTags):
-	_add_VHVAR(font, masterModel, master_ttfs, axisTags, hvarFields)
+	_add_VHVAR(font, masterModel, master_ttfs, axisTags, HVAR_FIELDS)
 
 def _add_VVAR(font, masterModel, master_ttfs, axisTags):
-	_add_VHVAR(font, masterModel, master_ttfs, axisTags, vvarFields)
+	_add_VHVAR(font, masterModel, master_ttfs, axisTags, VVAR_FIELDS)
 
 def _add_VHVAR(font, masterModel, master_ttfs, axisTags, tableFields):
 
@@ -693,9 +596,15 @@ def _merge_OTL(font, model, master_fonts, axisTags):
 		GDEF = font['GDEF'].table
 		assert GDEF.Version <= 0x00010002
 	except KeyError:
-		font['GDEF']= newTable('GDEF')
+		font['GDEF'] = newTable('GDEF')
 		GDEFTable = font["GDEF"] = newTable('GDEF')
 		GDEF = GDEFTable.table = ot.GDEF()
+		GDEF.GlyphClassDef = None
+		GDEF.AttachList = None
+		GDEF.LigCaretList = None
+		GDEF.MarkAttachClassDef = None
+		GDEF.MarkGlyphSetsDef = None
+
 	GDEF.Version = 0x00010003
 	GDEF.VarStore = store
 
@@ -857,6 +766,45 @@ def load_designspace(designspace):
 	)
 
 
+# https://docs.microsoft.com/en-us/typography/opentype/spec/os2#uswidthclass
+WDTH_VALUE_TO_OS2_WIDTH_CLASS = {
+	50: 1,
+	62.5: 2,
+	75: 3,
+	87.5: 4,
+	100: 5,
+	112.5: 6,
+	125: 7,
+	150: 8,
+	200: 9,
+}
+
+
+def set_default_weight_width_slant(font, location):
+	if "OS/2" in font:
+		if "wght" in location:
+			weight_class = otRound(max(1, min(location["wght"], 1000)))
+			if font["OS/2"].usWeightClass != weight_class:
+				log.info("Setting OS/2.usWidthClass = %s", weight_class)
+				font["OS/2"].usWeightClass = weight_class
+
+		if "wdth" in location:
+			# map 'wdth' axis (50..200) to OS/2.usWidthClass (1..9), rounding to closest
+			widthValue = min(max(location["wdth"], 50), 200)
+			widthClass = otRound(
+				models.piecewiseLinearMap(widthValue, WDTH_VALUE_TO_OS2_WIDTH_CLASS)
+			)
+			if font["OS/2"].usWidthClass != widthClass:
+				log.info("Setting OS/2.usWidthClass = %s", widthClass)
+				font["OS/2"].usWidthClass = widthClass
+
+	if "slnt" in location and "post" in font:
+		italicAngle = max(-90, min(location["slnt"], 90))
+		if font["post"].italicAngle != italicAngle:
+			log.info("Setting post.italicAngle = %s", italicAngle)
+			font["post"].italicAngle = italicAngle
+
+
 def build(designspace, master_finder=lambda s:s, exclude=[], optimize=True):
 	"""
 	Build variation font from a designspace file.
@@ -929,6 +877,10 @@ def build(designspace, master_finder=lambda s:s, exclude=[], optimize=True):
 				post.formatType = 2.0
 				post.extraNames = []
 				post.mapping = {}
+
+	set_default_weight_width_slant(
+		vf, location={axis.axisTag: axis.defaultValue for axis in vf["fvar"].axes}
+	)
 
 	for tag in exclude:
 		if tag in vf:
@@ -1046,16 +998,24 @@ def main(args=None):
 			'name. The default value is "%(default)s".'
 		)
 	)
+	logging_group = parser.add_mutually_exclusive_group(required=False)
+	logging_group.add_argument(
+		"-v", "--verbose",
+                action="store_true",
+                help="Run more verbosely.")
+	logging_group.add_argument(
+		"-q", "--quiet",
+                action="store_true",
+                help="Turn verbosity off.")
 	options = parser.parse_args(args)
 
-	# TODO: allow user to configure logging via command-line options
-	configLogger(level="INFO")
+	configLogger(level=(
+		"DEBUG" if options.verbose else
+		"ERROR" if options.quiet else
+		"INFO"))
 
 	designspace_filename = options.designspace
 	finder = MasterFinder(options.master_finder)
-	outfile = options.outfile
-	if outfile is None:
-		outfile = os.path.splitext(designspace_filename)[0] + '-VF.ttf'
 
 	vf, _, _ = build(
 		designspace_filename,
@@ -1063,6 +1023,11 @@ def main(args=None):
 		exclude=options.exclude,
 		optimize=options.optimize
 	)
+
+	outfile = options.outfile
+	if outfile is None:
+		ext = "otf" if vf.sfntVersion == "OTTO" else "ttf"
+		outfile = os.path.splitext(designspace_filename)[0] + '-VF.' + ext
 
 	log.info("Saving variation font %s", outfile)
 	vf.save(outfile)
