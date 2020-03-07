@@ -1,4 +1,3 @@
-from __future__ import print_function, division, absolute_import, unicode_literals
 from fontTools.misc.py23 import *
 from fontTools import ttLib
 from fontTools.ttLib import woff2
@@ -1199,6 +1198,24 @@ class WOFF2RoundtripTest(object):
 
 		assert tmp.getvalue() == tmp2.getvalue()
 		assert ttFont2.reader.flavorData.transformedTables == {"hmtx"}
+
+	def test_roundtrip_no_glyf_and_loca_tables(self):
+		ttx = os.path.join(
+			os.path.dirname(current_dir), "subset", "data", "google_color.ttx"
+		)
+		ttFont = ttLib.TTFont()
+		ttFont.importXML(ttx)
+
+		assert "glyf" not in ttFont
+		assert "loca" not in ttFont
+
+		ttFont.flavor = "woff2"
+		tmp = BytesIO()
+		ttFont.save(tmp)
+
+		tmp2, ttFont2 = self.roundtrip(tmp)
+		assert tmp.getvalue() == tmp2.getvalue()
+		assert ttFont.flavor == "woff2"
 
 
 class MainTest(object):

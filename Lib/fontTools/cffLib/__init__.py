@@ -1,6 +1,5 @@
 """cffLib.py -- read/write tools for Adobe CFF fonts."""
 
-from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from fontTools.misc import psCharStrings
@@ -1320,6 +1319,20 @@ class CharsetConverter(SimpleConverter):
 				raise NotImplementedError
 			assert len(charset) == numGlyphs
 			log.log(DEBUG, "    charset end at %s", file.tell())
+			# make sure glyph names are unique
+			allNames = {}
+			newCharset = []
+			for glyphName in charset:
+				if glyphName in allNames:
+					# make up a new glyphName that's unique
+					n = allNames[glyphName]
+					while (glyphName + "#" + str(n)) in allNames:
+						n += 1
+					allNames[glyphName] = n + 1
+					glyphName = glyphName + "#" + str(n)
+				allNames[glyphName] = 1
+				newCharset.append(glyphName)
+			charset = newCharset
 		else:  # offset == 0 -> no charset data.
 			if isCID or "CharStrings" not in parent.rawDict:
 				# We get here only when processing fontDicts from the FDArray of
