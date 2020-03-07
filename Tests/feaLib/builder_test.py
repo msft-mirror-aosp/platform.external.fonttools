@@ -1,5 +1,3 @@
-from __future__ import print_function, division, absolute_import
-from __future__ import unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.loggingTools import CapturingLogHandler
 from fontTools.feaLib.builder import Builder, addOpenTypeFeatures, \
@@ -43,7 +41,7 @@ def makeTTFont():
         a_n_d T_h T_h.swash germandbls ydieresis yacute breve
         grave acute dieresis macron circumflex cedilla umlaut ogonek caron
         damma hamza sukun kasratan lam_meem_jeem noon.final noon.initial
-        by feature lookup sub table
+        by feature lookup sub table uni0327 uni0328 e.fina
     """.split()
     font = TTFont()
     font.setGlyphOrder(glyphs)
@@ -189,6 +187,17 @@ class BuilderTest(unittest.TestCase):
             "    sub A from [A.alt1 A.alt2];"
             "} test;")
 
+    def test_singleSubst_multipleIdenticalSubstitutionsForSameGlyph_info(self):
+        logger = logging.getLogger("fontTools.feaLib.builder")
+        with CapturingLogHandler(logger, "INFO") as captor:
+            self.build(
+                "feature test {"
+                "    sub A by A.sc;"
+                "    sub B by B.sc;"
+                "    sub A by A.sc;"
+                "} test;")
+        captor.assertRegex('Removing duplicate single substitution from glyph "A" to "A.sc"')
+
     def test_multipleSubst_multipleSubstitutionsForSameGlyph(self):
         self.assertRaisesRegex(
             FeatureLibError,
@@ -197,8 +206,19 @@ class BuilderTest(unittest.TestCase):
             "feature test {"
             "    sub f_f_i by f f i;"
             "    sub c_t by c t;"
-            "    sub f_f_i by f f i;"
+            "    sub f_f_i by f_f i;"
             "} test;")
+
+    def test_multipleSubst_multipleIdenticalSubstitutionsForSameGlyph_info(self):
+        logger = logging.getLogger("fontTools.feaLib.builder")
+        with CapturingLogHandler(logger, "INFO") as captor:
+            self.build(
+                "feature test {"
+                "    sub f_f_i by f f i;"
+                "    sub c_t by c t;"
+                "    sub f_f_i by f f i;"
+                "} test;")
+        captor.assertRegex(r"Removing duplicate multiple substitution from glyph \"f_f_i\" to \('f', 'f', 'i'\)")
 
     def test_pairPos_redefinition_warning(self):
         # https://github.com/fonttools/fonttools/issues/1147
