@@ -1,5 +1,4 @@
 # coding: utf-8
-from __future__ import print_function, division, absolute_import, unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.testTools import getXML, parseXML, FakeFont
 from fontTools.misc.textTools import deHexStr, hexStr
@@ -547,6 +546,37 @@ class InsertionMorphActionTest(unittest.TestCase):
         })
 
 
+class SplitMultipleSubstTest:
+    def overflow(self, itemName, itemRecord):
+        from fontTools.otlLib.builder import buildMultipleSubstSubtable
+        from fontTools.ttLib.tables.otBase import OverflowErrorRecord
+
+        oldSubTable = buildMultipleSubstSubtable({'e': 1, 'a': 2, 'b': 3, 'c': 4, 'd': 5})
+        oldSubTable.Format = 1
+        newSubTable = otTables.MultipleSubst()
+
+        ok = otTables.splitMultipleSubst(oldSubTable, newSubTable, OverflowErrorRecord((None, None, None, itemName, itemRecord)))
+
+        assert ok
+        assert oldSubTable.Format == newSubTable.Format
+        return oldSubTable.mapping, newSubTable.mapping
+
+    def test_Coverage(self):
+        oldMapping, newMapping = self.overflow('Coverage', None)
+        assert oldMapping == {'a': 2, 'b': 3}
+        assert newMapping == {'c': 4, 'd': 5, 'e': 1}
+
+    def test_RangeRecord(self):
+        oldMapping, newMapping = self.overflow('RangeRecord', None)
+        assert oldMapping == {'a': 2, 'b': 3}
+        assert newMapping == {'c': 4, 'd': 5, 'e': 1}
+
+    def test_Sequence(self):
+        oldMapping, newMapping = self.overflow('Sequence', 4)
+        assert oldMapping == {'a': 2, 'b': 3,'c': 4}
+        assert newMapping == {'d': 5, 'e': 1}
+
+
 def test_splitMarkBasePos():
 	from fontTools.otlLib.builder import buildAnchor, buildMarkBasePosSubtable
 
@@ -575,20 +605,87 @@ def test_splitMarkBasePos():
 	ok = otTables.splitMarkBasePos(oldSubTable, newSubTable, overflowRecord=None)
 
 	assert ok
-	assert oldSubTable.Format == newSubTable.Format
-	assert oldSubTable.MarkCoverage.glyphs == [
-		"acutecomb", "gravecomb"
+
+	assert getXML(oldSubTable.toXML) == [
+		'<MarkBasePos Format="1">',
+		'  <MarkCoverage Format="1">',
+		'    <Glyph value="acutecomb"/>',
+		'    <Glyph value="gravecomb"/>',
+		'  </MarkCoverage>',
+		'  <BaseCoverage Format="1">',
+		'    <Glyph value="a"/>',
+		'    <Glyph value="c"/>',
+		'  </BaseCoverage>',
+		'  <!-- ClassCount=1 -->',
+		'  <MarkArray>',
+		'    <!-- MarkCount=2 -->',
+		'    <MarkRecord index="0">',
+		'      <Class value="0"/>',
+		'      <MarkAnchor Format="1">',
+		'        <XCoordinate value="0"/>',
+		'        <YCoordinate value="600"/>',
+		'      </MarkAnchor>',
+		'    </MarkRecord>',
+		'    <MarkRecord index="1">',
+		'      <Class value="0"/>',
+		'      <MarkAnchor Format="1">',
+		'        <XCoordinate value="0"/>',
+		'        <YCoordinate value="590"/>',
+		'      </MarkAnchor>',
+		'    </MarkRecord>',
+		'  </MarkArray>',
+		'  <BaseArray>',
+		'    <!-- BaseCount=2 -->',
+		'    <BaseRecord index="0">',
+		'      <BaseAnchor index="0" Format="1">',
+		'        <XCoordinate value="350"/>',
+		'        <YCoordinate value="500"/>',
+		'      </BaseAnchor>',
+		'    </BaseRecord>',
+		'    <BaseRecord index="1">',
+		'      <BaseAnchor index="0" Format="1">',
+		'        <XCoordinate value="300"/>',
+		'        <YCoordinate value="700"/>',
+		'      </BaseAnchor>',
+		'    </BaseRecord>',
+		'  </BaseArray>',
+		'</MarkBasePos>',
 	]
-	assert newSubTable.MarkCoverage.glyphs == ["cedillacomb"]
-	assert newSubTable.MarkCoverage.Format == 1
-	assert oldSubTable.BaseCoverage.glyphs == newSubTable.BaseCoverage.glyphs
-	assert newSubTable.BaseCoverage.Format == 1
-	assert oldSubTable.ClassCount == newSubTable.ClassCount == 1
-	assert oldSubTable.MarkArray.MarkCount == 2
-	assert newSubTable.MarkArray.MarkCount == 1
-	assert oldSubTable.BaseArray.BaseCount == newSubTable.BaseArray.BaseCount
-	assert newSubTable.BaseArray.BaseRecord[0].BaseAnchor[0] is None
-	assert newSubTable.BaseArray.BaseRecord[1].BaseAnchor[0] == buildAnchor(300, 0)
+
+	assert getXML(newSubTable.toXML) == [
+		'<MarkBasePos Format="1">',
+		'  <MarkCoverage Format="1">',
+		'    <Glyph value="cedillacomb"/>',
+		'  </MarkCoverage>',
+		'  <BaseCoverage Format="1">',
+		'    <Glyph value="a"/>',
+		'    <Glyph value="c"/>',
+		'  </BaseCoverage>',
+		'  <!-- ClassCount=1 -->',
+		'  <MarkArray>',
+		'    <!-- MarkCount=1 -->',
+		'    <MarkRecord index="0">',
+		'      <Class value="0"/>',
+		'      <MarkAnchor Format="1">',
+		'        <XCoordinate value="0"/>',
+		'        <YCoordinate value="0"/>',
+		'      </MarkAnchor>',
+		'    </MarkRecord>',
+		'  </MarkArray>',
+		'  <BaseArray>',
+		'    <!-- BaseCount=2 -->',
+		'    <BaseRecord index="0">',
+		'      <BaseAnchor index="0" empty="1"/>',
+		'    </BaseRecord>',
+		'    <BaseRecord index="1">',
+		'      <BaseAnchor index="0" Format="1">',
+		'        <XCoordinate value="300"/>',
+		'        <YCoordinate value="0"/>',
+		'      </BaseAnchor>',
+		'    </BaseRecord>',
+		'  </BaseArray>',
+		'</MarkBasePos>',
+	]
 
 
 if __name__ == "__main__":

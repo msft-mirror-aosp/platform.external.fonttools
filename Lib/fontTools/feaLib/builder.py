@@ -1,5 +1,3 @@
-from __future__ import print_function, division, absolute_import
-from __future__ import unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from fontTools.misc.textTools import binary2num, safeEval
@@ -681,15 +679,17 @@ class Builder(object):
         self.cur_lookup_name_ = name
         self.named_lookups_[name] = None
         self.cur_lookup_ = None
-        self.lookupflag_ = 0
-        self.lookupflag_markFilterSet_ = None
+        if self.cur_feature_name_ is None:
+            self.lookupflag_ = 0
+            self.lookupflag_markFilterSet_ = None
 
     def end_lookup_block(self):
         assert self.cur_lookup_name_ is not None
         self.cur_lookup_name_ = None
         self.cur_lookup_ = None
-        self.lookupflag_ = 0
-        self.lookupflag_markFilterSet_ = None
+        if self.cur_feature_name_ is None:
+            self.lookupflag_ = 0
+            self.lookupflag_markFilterSet_ = None
 
     def add_lookup_call(self, lookup_name):
         assert lookup_name in self.named_lookups_, lookup_name
@@ -894,9 +894,17 @@ class Builder(object):
             return
         lookup = self.get_lookup_(location, MultipleSubstBuilder)
         if glyph in lookup.mapping:
-            raise FeatureLibError(
-                'Already defined substitution for glyph "%s"' % glyph,
-                location)
+            if replacements == lookup.mapping[glyph]:
+                log.info(
+                    'Removing duplicate multiple substitution from glyph'
+                    ' "%s" to %s%s',
+                    glyph, replacements,
+                    ' at {}:{}:{}'.format(*location) if location else '',
+                )
+            else:
+                raise FeatureLibError(
+                    'Already defined substitution for glyph "%s"' % glyph,
+                    location)
         lookup.mapping[glyph] = replacements
 
     def add_reverse_chain_single_subst(self, location, old_prefix,
@@ -916,10 +924,17 @@ class Builder(object):
         lookup = self.get_lookup_(location, SingleSubstBuilder)
         for (from_glyph, to_glyph) in mapping.items():
             if from_glyph in lookup.mapping:
-                raise FeatureLibError(
-                    'Already defined rule for replacing glyph "%s" by "%s"' %
-                    (from_glyph, lookup.mapping[from_glyph]),
-                    location)
+                if to_glyph == lookup.mapping[from_glyph]:
+                    log.info(
+                        'Removing duplicate single substitution from glyph'
+                        ' "%s" to "%s" at %s:%i:%i',
+                        from_glyph, to_glyph, *location,
+                    )
+                else:
+                    raise FeatureLibError(
+                        'Already defined rule for replacing glyph "%s" by "%s"' %
+                        (from_glyph, lookup.mapping[from_glyph]),
+                        location)
             lookup.mapping[from_glyph] = to_glyph
 
     def add_single_subst_chained_(self, location, prefix, suffix, mapping):
@@ -1051,11 +1066,13 @@ class Builder(object):
 
     def add_ligatureCaretByIndex_(self, location, glyphs, carets):
         for glyph in glyphs:
-            self.ligCaretPoints_.setdefault(glyph, set()).update(carets)
+            if glyph not in self.ligCaretPoints_:
+                self.ligCaretPoints_[glyph] = carets
 
     def add_ligatureCaretByPos_(self, location, glyphs, carets):
         for glyph in glyphs:
-            self.ligCaretCoords_.setdefault(glyph, set()).update(carets)
+            if glyph not in self.ligCaretCoords_:
+                self.ligCaretCoords_[glyph] = carets
 
     def add_name_record(self, location, nameID, platformID, platEncID,
                         langID, string):
