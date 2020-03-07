@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 from __future__ import print_function
 import io
@@ -32,18 +32,11 @@ extras_require = {
 	# for fontTools.ufoLib: to read/write UFO fonts
 	"ufo": [
 		"fs >= 2.2.0, < 3",
-		"enum34 >= 1.1.6; python_version < '3.4'",
 	],
 	# for fontTools.misc.etree and fontTools.misc.plistlib: use lxml to
 	# read/write XML files (faster/safer than built-in ElementTree)
 	"lxml": [
 		"lxml >= 4.0, < 5",
-		"singledispatch >= 3.4.0.3; python_version < '3.4'",
-		# typing >= 3.6.4 is required when using ABC collections with the
-		# singledispatch backport, see:
-		# https://github.com/fonttools/fonttools/issues/1423
-		# https://github.com/python/typing/issues/484
-		"typing >= 3.6.4; python_version < '3.4'",
 	],
 	# for fontTools.sfnt and fontTools.woff2: to compress/uncompress
 	# WOFF 1.0 and WOFF 2.0 webfonts.
@@ -57,9 +50,9 @@ extras_require = {
 	# which varies between python versions and may be outdated.
 	"unicode": [
 		# the unicodedata2 extension module doesn't work on PyPy.
-		# Python 3.8 already has Unicode 12, so the backport is not needed.
+		# Python 3.8 already has Unicode 12.1, so the backport is not needed.
 		(
-			"unicodedata2 >= 12.0.0; "
+			"unicodedata2 >= 12.1.0; "
 			"python_version < '3.8' and platform_python_implementation != 'PyPy'"
 		),
 	],
@@ -261,7 +254,7 @@ class release(Command):
 		""" Run bumpversion.main() with the specified arguments, and return the
 		new computed version string (cf. 'bumpversion --help' for more info)
 		"""
-		import bumpversion
+		import bumpversion.cli
 
 		args = (
 			(['--verbose'] if self.verbose > 1 else []) +
@@ -274,7 +267,7 @@ class release(Command):
 		log.debug("$ bumpversion %s" % " ".join(a.replace(" ", "\\ ") for a in args))
 
 		with capture_logger("bumpversion.list") as out:
-			bumpversion.main(args)
+			bumpversion.cli.main(args)
 
 		last_line = out.getvalue().splitlines()[-1]
 		new_version = last_line.replace("new_version=", "")
@@ -352,7 +345,7 @@ def find_data_files(manpath="share/man"):
 
 setup(
 	name="fonttools",
-	version="3.44.0",
+	version="4.4.1",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",
@@ -361,6 +354,7 @@ setup(
 	url="http://github.com/fonttools/fonttools",
 	license="MIT",
 	platforms=["Any"],
+	python_requires=">=3.6",
 	long_description=long_description,
 	package_dir={'': 'Lib'},
 	packages=find_packages("Lib"),

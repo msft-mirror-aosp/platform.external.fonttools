@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function, division, absolute_import
-from __future__ import unicode_literals
 from fontTools.feaLib.error import FeatureLibError
 from fontTools.feaLib.parser import Parser, SymbolTable
 from fontTools.misc.py23 import *
@@ -41,6 +39,14 @@ GLYPHNAMES = ("""
     n.sc o.sc p.sc q.sc r.sc s.sc t.sc u.sc v.sc w.sc x.sc y.sc z.sc
     a.swash b.swash x.swash y.swash z.swash
     foobar foo.09 foo.1234 foo.9876
+    one two five six acute grave dieresis umlaut cedilla ogonek macron
+    a_f_f_i o_f_f_i f_i f_f_i one.fitted one.oldstyle a.1 a.2 a.3 c_t
+    PRE SUF FIX BACK TRACK LOOK AHEAD ampersand ampersand.1 ampersand.2
+    cid00001 cid00002 cid00003 cid00004 cid00005 cid00006 cid00007
+    cid12345 cid78987 cid00999 cid01000 cid01001 cid00998 cid00995
+    cid00111 cid00222
+    comma endash emdash figuredash damma hamza
+    c_d d.alt n.end s.end f_f
 """).split() + ["foo.%d" % i for i in range(1, 200)]
 
 
@@ -261,6 +267,12 @@ class ParserTest(unittest.TestCase):
         self.assertRaisesRegex(
             FeatureLibError, "Font revision numbers must be positive",
             self.parse, "table head {FontRevision -17.2;} head;")
+
+    def test_strict_glyph_name_check(self):
+        self.parse("@bad = [a b ccc];", glyphNames=("a", "b", "ccc"))
+
+        with self.assertRaisesRegex(FeatureLibError, "missing from the glyph set: ccc"):
+            self.parse("@bad = [a b ccc];", glyphNames=("a", "b"))
 
     def test_glyphclass(self):
         [gc] = self.parse("@dash = [endash emdash figuredash];").statements
@@ -1119,6 +1131,36 @@ class ParserTest(unittest.TestCase):
             FeatureLibError, "Expected platform id 1 or 3",
             self.parse, 'table name { nameid 9 666 "Foo"; } name;')
 
+    def test_nameid_hexadecimal(self):
+        doc = self.parse(
+            r'table name { nameid 0x9 0x3 0x1 0x0409 "Test"; } name;')
+        name = doc.statements[0].statements[0]
+        self.assertEqual(name.nameID, 9)
+        self.assertEqual(name.platformID, 3)
+        self.assertEqual(name.platEncID, 1)
+        self.assertEqual(name.langID, 0x0409)
+
+    def test_nameid_octal(self):
+        doc = self.parse(
+            r'table name { nameid 011 03 012 02011 "Test"; } name;')
+        name = doc.statements[0].statements[0]
+        self.assertEqual(name.nameID, 9)
+        self.assertEqual(name.platformID, 3)
+        self.assertEqual(name.platEncID, 10)
+        self.assertEqual(name.langID, 0o2011)
+
+    def test_cv_hexadecimal(self):
+        doc = self.parse(
+            r'feature cv01 { cvParameters { Character 0x5DDE; }; } cv01;')
+        cv = doc.statements[0].statements[0].statements[0]
+        self.assertEqual(cv.character, 0x5DDE)
+
+    def test_cv_octal(self):
+        doc = self.parse(
+            r'feature cv01 { cvParameters { Character 056736; }; } cv01;')
+        cv = doc.statements[0].statements[0].statements[0]
+        self.assertEqual(cv.character, 0o56736)
+
     def test_rsub_format_a(self):
         doc = self.parse("feature test {rsub a [b B] c' d [e E] by C;} test;")
         rsub = doc.statements[0].statements[0]
@@ -1368,12 +1410,22 @@ class ParserTest(unittest.TestCase):
                          "  sub f_f   by f f;"
                          "  sub f     by f;"
                          "  sub f_f_i by f f i;"
+                         "  sub [a a.sc] by a;"
+                         "  sub [a a.sc] by [b b.sc];"
                          "} Look;")
         statements = doc.statements[0].statements
         for sub in statements:
             self.assertIsInstance(sub, ast.MultipleSubstStatement)
         self.assertEqual(statements[1].glyph, "f")
         self.assertEqual(statements[1].replacement, ["f"])
+        self.assertEqual(statements[3].glyph, "a")
+        self.assertEqual(statements[3].replacement, ["a"])
+        self.assertEqual(statements[4].glyph, "a.sc")
+        self.assertEqual(statements[4].replacement, ["a"])
+        self.assertEqual(statements[5].glyph, "a")
+        self.assertEqual(statements[5].replacement, ["b"])
+        self.assertEqual(statements[6].glyph, "a.sc")
+        self.assertEqual(statements[6].replacement, ["b.sc"])
 
     def test_substitute_from(self):  # GSUB LookupType 3
         doc = self.parse("feature test {"

@@ -1,6 +1,8 @@
-from __future__ import print_function, division, absolute_import
+import io
 from fontTools.misc.py23 import *
+from fontTools.misc.testTools import getXML
 from fontTools import subset
+from fontTools.fontBuilder import FontBuilder
 from fontTools.ttLib import TTFont, newTable
 from fontTools.misc.loggingTools import CapturingLogHandler
 import difflib
@@ -10,6 +12,8 @@ import shutil
 import sys
 import tempfile
 import unittest
+import pathlib
+import pytest
 
 
 class SubsetTest(unittest.TestCase):
@@ -727,6 +731,145 @@ class SubsetTest(unittest.TestCase):
         ttf = TTFont(ttf_path)
 
         self.assertEqual(ttf.flavor, None)
+
+
+def test_subset_feature_variations():
+    fb = FontBuilder(unitsPerEm=100)
+    fb.setupGlyphOrder([".notdef", "f", "f_f", "dollar", "dollar.rvrn"])
+    fb.setupCharacterMap({ord("f"): "f", ord("$"): "dollar"})
+    fb.setupNameTable({"familyName": "TestFeatureVars", "styleName": "Regular"})
+    fb.setupPost()
+    fb.setupFvar(axes=[("wght", 100, 400, 900, "Weight")], instances=[])
+    fb.addOpenTypeFeatures("""\
+        feature dlig {
+            sub f f by f_f;
+        } dlig;
+    """)
+    fb.addFeatureVariations(
+        [([{"wght": (0.20886, 1.0)}], {"dollar": "dollar.rvrn"})],
+        featureTag="rvrn"
+    )
+    buf = io.BytesIO()
+    fb.save(buf)
+    buf.seek(0)
+
+    font = TTFont(buf)
+
+    options = subset.Options()
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("f"), ord("$")])
+    subsetter.subset(font)
+
+    featureTags = {
+        r.FeatureTag for r in font["GSUB"].table.FeatureList.FeatureRecord
+    }
+    # 'dlig' is discretionary so it is dropped by default
+    assert "dlig" not in featureTags
+    assert "f_f" not in font.getGlyphOrder()
+    # 'rvrn' is required so it is kept by default
+    assert "rvrn" in featureTags
+    assert "dollar.rvrn" in font.getGlyphOrder()
+
+
+def test_subset_single_pos_format():
+    fb = FontBuilder(unitsPerEm=1000)
+    fb.setupGlyphOrder([".notdef", "a", "b", "c"])
+    fb.setupCharacterMap({ord("a"): "a", ord("b"): "b", ord("c"): "c"})
+    fb.setupNameTable({"familyName": "TestSingePosFormat", "styleName": "Regular"})
+    fb.setupPost()
+    fb.addOpenTypeFeatures("""
+        feature kern {
+            pos a -50;
+            pos b -40;
+            pos c -50;
+        } kern;
+    """)
+
+    buf = io.BytesIO()
+    fb.save(buf)
+    buf.seek(0)
+
+    font = TTFont(buf)
+
+    # The input font has a SinglePos Format 2 subtable where each glyph has
+    # different ValueRecords
+    assert getXML(font["GPOS"].table.LookupList.Lookup[0].toXML, font) == [
+        '<Lookup>',
+        '  <LookupType value="1"/>',
+        '  <LookupFlag value="0"/>',
+        '  <!-- SubTableCount=1 -->',
+        '  <SinglePos index="0" Format="2">',
+        '    <Coverage Format="1">',
+        '      <Glyph value="a"/>',
+        '      <Glyph value="b"/>',
+        '      <Glyph value="c"/>',
+        '    </Coverage>',
+        '    <ValueFormat value="4"/>',
+        '    <!-- ValueCount=3 -->',
+        '    <Value index="0" XAdvance="-50"/>',
+        '    <Value index="1" XAdvance="-40"/>',
+        '    <Value index="2" XAdvance="-50"/>',
+        '  </SinglePos>',
+        '</Lookup>',
+    ]
+
+    options = subset.Options()
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("a"), ord("c")])
+    subsetter.subset(font)
+
+    # All the subsetted glyphs from the original SinglePos Format2 subtable
+    # now have the same ValueRecord, so we use a more compact Format 1 subtable.
+    assert getXML(font["GPOS"].table.LookupList.Lookup[0].toXML, font) == [
+        '<Lookup>',
+        '  <LookupType value="1"/>',
+        '  <LookupFlag value="0"/>',
+        '  <!-- SubTableCount=1 -->',
+        '  <SinglePos index="0" Format="1">',
+        '    <Coverage Format="1">',
+        '      <Glyph value="a"/>',
+        '      <Glyph value="c"/>',
+        '    </Coverage>',
+        '    <ValueFormat value="4"/>',
+        '    <Value XAdvance="-50"/>',
+        '  </SinglePos>',
+        '</Lookup>',
+    ]
+
+
+@pytest.fixture
+def ttf_path(tmp_path):
+    # $(dirname $0)/../ttLib/data
+    ttLib_data = pathlib.Path(__file__).parent.parent / "ttLib" / "data"
+    font = TTFont()
+    font.importXML(ttLib_data / "TestTTF-Regular.ttx")
+    font_path = tmp_path / "TestTTF-Regular.ttf"
+    font.save(font_path)
+    return font_path
+
+
+def test_subset_empty_glyf(tmp_path, ttf_path):
+    subset_path = tmp_path / (ttf_path.name + ".subset")
+    # only keep empty .notdef and space glyph, resulting in an empty glyf table
+    subset.main(
+        [
+            str(ttf_path),
+            "--no-notdef-outline",
+            "--glyph-names",
+            f"--output-file={subset_path}",
+            "--glyphs=.notdef space",
+        ]
+    )
+    subset_font = TTFont(subset_path)
+
+    assert subset_font.getGlyphOrder() == [".notdef", "space"]
+    assert subset_font.reader['glyf'] == b"\x00"
+
+    glyf = subset_font["glyf"]
+    assert all(glyf[g].numberOfContours == 0 for g in subset_font.getGlyphOrder())
+
+    loca = subset_font["loca"]
+    assert all(loc == 0 for loc in loca)
 
 
 if __name__ == "__main__":
