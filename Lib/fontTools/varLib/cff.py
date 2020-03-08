@@ -1,5 +1,4 @@
 from collections import namedtuple
-import os
 from fontTools.cffLib import (
 	maxStackLimit,
 	TopDictIndex,
@@ -12,7 +11,7 @@ from fontTools.cffLib import (
 	FontDict,
 	VarStoreData
 )
-from fontTools.misc.py23 import BytesIO
+from io import BytesIO
 from fontTools.cffLib.specializer import (
 	specializeCommands, commandsToProgram)
 from fontTools.ttLib import newTable
@@ -20,6 +19,13 @@ from fontTools import varLib
 from fontTools.varLib.models import allEqual
 from fontTools.misc.psCharStrings import T2CharString, T2OutlineExtractor
 from fontTools.pens.t2CharStringPen import T2CharStringPen, t2c_round
+
+from .errors import VarLibCFFDictMergeError, VarLibCFFPointTypeMergeError, VarLibMergeError
+
+
+# Backwards compatibility
+MergeDictError = VarLibCFFDictMergeError
+MergeTypeError = VarLibCFFPointTypeMergeError
 
 
 def addCFFVarStore(varFont, varModel, varDataList, masterSupports):
@@ -30,6 +36,11 @@ def addCFFVarStore(varFont, varModel, varDataList, masterSupports):
 
 	topDict = varFont['CFF2'].cff.topDictIndex[0]
 	topDict.VarStore = VarStoreData(otVarStore=varStoreCFFV)
+	if topDict.FDArray[0].vstore is None:
+		fdArray = topDict.FDArray
+		for fontDict in fdArray:
+			if hasattr(fontDict, "Private"):
+				fontDict.Private.vstore = topDict.VarStore
 
 
 def lib_convertCFFToCFF2(cff, otFont):
@@ -61,15 +72,16 @@ def lib_convertCFFToCFF2(cff, otFont):
 		fdArray.append(fontDict)
 		fontDict.Private = privateDict
 		privateOpOrder = buildOrder(privateDictOperators2)
-		for entry in privateDictOperators:
-			key = entry[1]
-			if key not in privateOpOrder:
-				if key in privateDict.rawDict:
-					# print "Removing private dict", key
-					del privateDict.rawDict[key]
-				if hasattr(privateDict, key):
-					delattr(privateDict, key)
-					# print "Removing privateDict attr", key
+		if privateDict is not None:
+			for entry in privateDictOperators:
+				key = entry[1]
+				if key not in privateOpOrder:
+					if key in privateDict.rawDict:
+						# print "Removing private dict", key
+						del privateDict.rawDict[key]
+					if hasattr(privateDict, key):
+						delattr(privateDict, key)
+						# print "Removing privateDict attr", key
 	else:
 		# clean up the PrivateDicts in the fdArray
 		fdArray = topDict.FDArray
@@ -118,16 +130,6 @@ def convertCFFtoCFF2(varFont):
 	newCFF2.cff = cffTable.cff
 	varFont['CFF2'] = newCFF2
 	del varFont['CFF ']
-
-
-class MergeDictError(TypeError):
-	def __init__(self, key, value, values):
-		error_msg = ["For the Private Dict key '{}', ".format(key),
-					 "the default font value list:",
-					 "\t{}".format(value),
-					 "had a different number of values than a region font:"]
-		error_msg += ["\t{}".format(region_value) for region_value in values]
-		error_msg = os.linesep.join(error_msg)
 
 
 def conv_to_int(num):
@@ -213,7 +215,7 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 				try:
 					values = zip(*values)
 				except IndexError:
-					raise MergeDictError(key, value, values)
+					raise VarLibCFFDictMergeError(key, value, values)
 				"""
 				Row 0 contains the first  value from each master.
 				Convert each row from absolute values to relative
@@ -265,6 +267,12 @@ def merge_PrivateDicts(top_dicts, vsindex_dict, var_model, fd_map):
 			private_dict.rawDict[key] = dataList
 
 
+def _cff_or_cff2(font):
+	if "CFF " in font:
+		return font["CFF "]
+	return font["CFF2"]
+
+
 def getfd_map(varFont, fonts_list):
 	""" Since a subset source font may have fewer FontDicts in their
 	FDArray than the default font, we have to match up the FontDicts in
@@ -277,7 +285,7 @@ def getfd_map(varFont, fonts_list):
 	default_font = fonts_list[0]
 	region_fonts = fonts_list[1:]
 	num_regions = len(region_fonts)
-	topDict = default_font['CFF '].cff.topDictIndex[0]
+	topDict = _cff_or_cff2(default_font).cff.topDictIndex[0]
 	if not hasattr(topDict, 'FDSelect'):
 		# All glyphs reference only one FontDict.
 		# Map the FD index for regions to index 0.
@@ -293,7 +301,7 @@ def getfd_map(varFont, fonts_list):
 			fd_map[fdIndex] = {}
 	for ri, region_font in enumerate(region_fonts):
 		region_glyphOrder = region_font.getGlyphOrder()
-		region_topDict = region_font['CFF '].cff.topDictIndex[0]
+		region_topDict = _cff_or_cff2(region_font).cff.topDictIndex[0]
 		if not hasattr(region_topDict, 'FDSelect'):
 			# All the glyphs share the same FontDict. Pick any glyph.
 			default_fdIndex = gname_mapping[region_glyphOrder[0]]
@@ -312,7 +320,7 @@ CVarData = namedtuple('CVarData', 'varDataList masterSupports vsindex_dict')
 def merge_region_fonts(varFont, model, ordered_fonts_list, glyphOrder):
 	topDict = varFont['CFF2'].cff.topDictIndex[0]
 	top_dicts = [topDict] + [
-					ttFont['CFF '].cff.topDictIndex[0]
+					_cff_or_cff2(ttFont).cff.topDictIndex[0]
 					for ttFont in ordered_fonts_list[1:]
 					]
 	num_masters = len(model.mapping)
@@ -412,21 +420,6 @@ def merge_charstrings(glyphOrder, num_masters, top_dicts, masterModel):
 	# XXX To do: optimize use of vsindex between the PrivateDicts and
 	# charstrings
 	return cvData
-
-
-class MergeTypeError(TypeError):
-	def __init__(self, point_type, pt_index, m_index, default_type, glyphName):
-			self.error_msg = [
-						"In glyph '{gname}' "
-						"'{point_type}' at point index {pt_index} in master "
-						"index {m_index} differs from the default font point "
-						"type '{default_type}'"
-						"".format(
-								gname=glyphName,
-								point_type=point_type, pt_index=pt_index,
-								m_index=m_index, default_type=default_type)
-							][0]
-			super(MergeTypeError, self).__init__(self.error_msg)
 
 
 def makeRoundNumberFunc(tolerance):
@@ -535,7 +528,7 @@ class CFF2CharStringMergePen(T2CharStringPen):
 		else:
 			cmd = self._commands[self.pt_index]
 			if cmd[0] != point_type:
-				raise MergeTypeError(
+				raise VarLibCFFPointTypeMergeError(
 									point_type,
 									self.pt_index, len(cmd[1]),
 									cmd[0], self.glyphName)
@@ -548,7 +541,7 @@ class CFF2CharStringMergePen(T2CharStringPen):
 		else:
 			cmd = self._commands[self.pt_index]
 			if cmd[0] != hint_type:
-				raise MergeTypeError(hint_type, self.pt_index, len(cmd[1]),
+				raise VarLibCFFPointTypeMergeError(hint_type, self.pt_index, len(cmd[1]),
 					cmd[0], self.glyphName)
 			cmd[1].append(args)
 		self.pt_index += 1
@@ -564,7 +557,7 @@ class CFF2CharStringMergePen(T2CharStringPen):
 		else:
 			cmd = self._commands[self.pt_index]
 			if cmd[0] != hint_type:
-				raise MergeTypeError(hint_type, self.pt_index, len(cmd[1]),
+				raise VarLibCFFPointTypeMergeError(hint_type, self.pt_index, len(cmd[1]),
 					cmd[0], self.glyphName)
 			self.pt_index += 1
 			cmd = self._commands[self.pt_index]
@@ -634,8 +627,8 @@ class CFF2CharStringMergePen(T2CharStringPen):
 			# second has only args.
 			if lastOp in ['hintmask', 'cntrmask']:
 				coord = list(cmd[1])
-				assert allEqual(coord), (
-					"hintmask values cannot differ between source fonts.")
+				if not allEqual(coord):
+					raise VarLibMergeError("Hintmask values cannot differ between source fonts.")
 				cmd[1] = [coord[0][0]]
 			else:
 				coords = cmd[1]
