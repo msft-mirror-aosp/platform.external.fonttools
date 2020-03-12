@@ -5,10 +5,9 @@ OpenType subtables.
 Most are constructed upon import from data in otData.py, all are populated with
 converter objects from otConverters.py.
 """
-from __future__ import print_function, division, absolute_import, unicode_literals
 from fontTools.misc.py23 import *
 from fontTools.misc.textTools import pad, safeEval
-from .otBase import BaseTable, FormatSwitchingBaseTable, ValueRecord
+from .otBase import BaseTable, FormatSwitchingBaseTable, ValueRecord, CountReference
 import logging
 import struct
 
@@ -688,6 +687,25 @@ class VarIdxMap(BaseTable):
 		mapping[glyph] = (outer << 16) | inner
 
 
+class VarRegionList(BaseTable):
+
+	def preWrite(self, font):
+		# The OT spec says VarStore.VarRegionList.RegionAxisCount should always
+		# be equal to the fvar.axisCount, and OTS < v8.0.0 enforces this rule
+		# even when the VarRegionList is empty. We can't treat RegionAxisCount
+		# like a normal propagated count (== len(Region[i].VarRegionAxis)),
+		# otherwise it would default to 0 if VarRegionList is empty.
+		# Thus, we force it to always be equal to fvar.axisCount.
+		# https://github.com/khaledhosny/ots/pull/192
+		fvarTable = font.get("fvar")
+		if fvarTable:
+			self.RegionAxisCount = len(fvarTable.axes)
+		return {
+			**self.__dict__,
+			"RegionAxisCount": CountReference(self.__dict__, "RegionAxisCount")
+		}
+
+
 class SingleSubst(FormatSwitchingBaseTable):
 
 	def populateDefaults(self, propagator=None):
@@ -1227,6 +1245,32 @@ def fixLookupOverFlows(ttf, overflowRecord):
 	ok = 1
 	return ok
 
+def splitMultipleSubst(oldSubTable, newSubTable, overflowRecord):
+	ok = 1
+	newSubTable.Format = oldSubTable.Format
+	oldMapping = sorted(oldSubTable.mapping.items())
+	oldLen = len(oldMapping)
+
+	if overflowRecord.itemName in ['Coverage', 'RangeRecord']:
+		# Coverage table is written last. Overflow is to or within the
+		# the coverage table. We will just cut the subtable in half.
+		newLen = oldLen // 2
+
+	elif overflowRecord.itemName == 'Sequence':
+		# We just need to back up by two items from the overflowed
+		# Sequence index to make sure the offset to the Coverage table
+		# doesn't overflow.
+		newLen = overflowRecord.itemIndex - 1
+
+	newSubTable.mapping = {}
+	for i in range(newLen, oldLen):
+		item = oldMapping[i]
+		key = item[0]
+		newSubTable.mapping[key] = item[1]
+		del oldSubTable.mapping[key]
+
+	return ok
+
 def splitAlternateSubst(oldSubTable, newSubTable, overflowRecord):
 	ok = 1
 	newSubTable.Format = oldSubTable.Format
@@ -1371,6 +1415,7 @@ def splitMarkBasePos(oldSubTable, newSubTable, overflowRecord):
 			oldMarkCoverage.append(glyphName)
 			oldMarkRecords.append(markRecord)
 		else:
+			markRecord.Class -= oldClassCount
 			newMarkCoverage.append(glyphName)
 			newMarkRecords.append(markRecord)
 
@@ -1414,7 +1459,7 @@ def splitMarkBasePos(oldSubTable, newSubTable, overflowRecord):
 
 splitTable = {	'GSUB': {
 #					1: splitSingleSubst,
-#					2: splitMultipleSubst,
+					2: splitMultipleSubst,
 					3: splitAlternateSubst,
 					4: splitLigatureSubst,
 #					5: splitContextSubst,

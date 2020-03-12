@@ -2,7 +2,6 @@
 #
 # Google Author(s): Behdad Esfahbod
 
-from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools import ttLib
@@ -547,6 +546,11 @@ def prune_post_subset(self, font, options):
 	if not options.hinting:
 		# Drop device tables
 		self.ValueFormat &= ~0x00F0
+	# Downgrade to Format 1 if all ValueRecords are the same
+	if self.Format == 2 and all(v == self.Value[0] for v in self.Value):
+		self.Format = 1
+		self.Value = self.Value[0] if self.ValueFormat != 0 else None
+		del self.ValueCount
 	return True
 
 @_add_method(otTables.PairPos)
@@ -1308,6 +1312,9 @@ def subset_features(self, feature_indices):
 	self.ensureDecompiled()
 	self.SubstitutionRecord = [r for r in self.SubstitutionRecord
 				     if r.FeatureIndex in feature_indices]
+	# remap feature indices
+	for r in self.SubstitutionRecord:
+		r.FeatureIndex = feature_indices.index(r.FeatureIndex)
 	self.SubstitutionCount = len(self.SubstitutionRecord)
 	return bool(self.SubstitutionCount)
 
@@ -1387,9 +1394,14 @@ def subset_glyphs(self, s):
 # CBDT will inherit it
 @_add_method(ttLib.getTableClass('EBDT'))
 def subset_glyphs(self, s):
-  self.strikeData = [{g: strike[g] for g in s.glyphs if g in strike}
-					 for strike in self.strikeData]
-  return True
+	strikeData = [
+		{g: strike[g] for g in s.glyphs if g in strike}
+		for strike in self.strikeData
+	]
+	# Prune empty strikes
+	# https://github.com/fonttools/fonttools/issues/1633
+	self.strikeData = [strike for strike in strikeData if strike]
+	return True
 
 @_add_method(ttLib.getTableClass('sbix'))
 def subset_glyphs(self, s):
@@ -2076,7 +2088,7 @@ def remapComponentsFast(self, glyphidmap):
 		elif flags & 0x0080: i += 8	# WE_HAVE_A_TWO_BY_TWO
 		more = flags & 0x0020	# MORE_COMPONENTS
 
-	self.data = data.tostring()
+	self.data = data.tobytes()
 
 @_add_method(ttLib.getTableClass('glyf'))
 def closure_glyphs(self, s):

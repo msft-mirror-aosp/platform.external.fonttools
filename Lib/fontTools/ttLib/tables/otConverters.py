@@ -1,8 +1,12 @@
-from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import (
-	fixedToFloat as fi2fl, floatToFixed as fl2fi, ensureVersionIsLong as fi2ve,
-	versionToFixed as ve2fi)
+	fixedToFloat as fi2fl,
+	floatToFixed as fl2fi,
+	floatToFixedToStr as fl2str,
+	strToFixedToFloat as str2fl,
+	ensureVersionIsLong as fi2ve,
+	versionToFixed as ve2fi,
+)
 from fontTools.misc.textTools import pad, safeEval
 from fontTools.ttLib import getSearchRange
 from .otBase import (CountReference, FormatSwitchingBaseTable,
@@ -316,6 +320,11 @@ class Fixed(FloatValue):
 		return  fi2fl(reader.readLong(), 16)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeLong(fl2fi(value, 16))
+	def xmlRead(self, attrs, content, font):
+		return str2fl(attrs["value"], 16)
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.simpletag(name, attrs + [("value", fl2str(value, 16))])
+		xmlWriter.newline()
 
 class F2Dot14(FloatValue):
 	staticSize = 2
@@ -323,6 +332,11 @@ class F2Dot14(FloatValue):
 		return  fi2fl(reader.readShort(), 14)
 	def write(self, writer, font, tableDict, value, repeatIndex=None):
 		writer.writeShort(fl2fi(value, 14))
+	def xmlRead(self, attrs, content, font):
+		return str2fl(attrs["value"], 14)
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.simpletag(name, attrs + [("value", fl2str(value, 14))])
+		xmlWriter.newline()
 
 class Version(BaseConverter):
 	staticSize = 4
@@ -1555,6 +1569,19 @@ class VarDataValue(BaseConverter):
 	def xmlRead(self, attrs, content, font):
 		return safeEval(attrs["value"])
 
+class LookupFlag(UShort):
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.simpletag(name, attrs + [("value", value)])
+		flags = []
+		if value & 0x01: flags.append("rightToLeft")
+		if value & 0x02: flags.append("ignoreBaseGlyphs")
+		if value & 0x04: flags.append("ignoreLigatures")
+		if value & 0x08: flags.append("ignoreMarks")
+		if value & 0x10: flags.append("useMarkFilteringSet")
+		if value & 0xff00: flags.append("markAttachmentType[%i]" % (value >> 8))
+		if flags:
+			xmlWriter.comment(" ".join(flags))
+		xmlWriter.newline()
 
 converterMapping = {
 	# type		class
@@ -1581,6 +1608,7 @@ converterMapping = {
 	"DeltaValue":	DeltaValue,
 	"VarIdxMapValue":	VarIdxMapValue,
 	"VarDataValue":	VarDataValue,
+	"LookupFlag": LookupFlag,
 
 	# AAT
 	"CIDGlyphMap":	CIDGlyphMap,
