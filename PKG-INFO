@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.4.1
+Version: 4.4.2
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -413,6 +413,13 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.4.2 (released 2020-03-12)
+        ---------------------------
+        
+        - [ttx] Annotate ``LookupFlag`` in XML dump with comment explaining what bits
+          are set and what they mean (#1850).
+        - [feaLib] Added more descriptive message to ``IncludedFeaNotFound`` error (#1842).
         
         4.4.1 (released 2020-02-26)
         ---------------------------
@@ -1992,12 +1999,12 @@ Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
 Provides-Extra: ufo
-Provides-Extra: lxml
-Provides-Extra: woff
-Provides-Extra: unicode
-Provides-Extra: graphite
 Provides-Extra: interpolatable
 Provides-Extra: plot
+Provides-Extra: graphite
+Provides-Extra: unicode
 Provides-Extra: symfont
-Provides-Extra: type1
 Provides-Extra: all
+Provides-Extra: woff
+Provides-Extra: type1
+Provides-Extra: lxml
