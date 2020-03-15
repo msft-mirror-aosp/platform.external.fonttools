@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.4.2
+Version: 4.4.3
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -413,6 +413,13 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.4.3 (released 2020-03-13)
+        ---------------------------
+        
+        - [varLib] Always build ``gvar`` table for TrueType-flavored Variable Fonts,
+          even if it contains no variation data. The table is required according to
+          the OpenType spec (#1855, #1857).
         
         4.4.2 (released 2020-03-12)
         ---------------------------
@@ -1998,13 +2005,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: ufo
-Provides-Extra: interpolatable
-Provides-Extra: plot
-Provides-Extra: graphite
-Provides-Extra: unicode
-Provides-Extra: symfont
-Provides-Extra: all
-Provides-Extra: woff
 Provides-Extra: type1
+Provides-Extra: interpolatable
+Provides-Extra: woff
 Provides-Extra: lxml
+Provides-Extra: unicode
+Provides-Extra: ufo
+Provides-Extra: symfont
+Provides-Extra: graphite
+Provides-Extra: plot
+Provides-Extra: all
