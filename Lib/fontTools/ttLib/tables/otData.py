@@ -1,5 +1,4 @@
 # coding: utf-8
-from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
 
 otData = [
@@ -88,7 +87,7 @@ otData = [
 
 	('Lookup', [
 		('uint16', 'LookupType', None, None, 'Different enumerations for GSUB and GPOS'),
-		('uint16', 'LookupFlag', None, None, 'Lookup qualifiers'),
+		('LookupFlag', 'LookupFlag', None, None, 'Lookup qualifiers'),
 		('uint16', 'SubTableCount', None, None, 'Number of SubTables for this lookup'),
 		('Offset', 'SubTable', 'SubTableCount', 0, 'Array of offsets to SubTables-from beginning of Lookup table'),
 		('uint16', 'MarkFilteringSet', None, 'LookupFlag & 0x0010', 'If set, indicates that the lookup table structure is followed by a MarkFilteringSet field. The layout engine skips over all mark glyphs not in the mark filtering set indicated.'),
@@ -703,6 +702,7 @@ otData = [
 		('Version', 'Version', None, None, 'Version of the BASE table-initially 0x00010000'),
 		('Offset', 'HorizAxis', None, None, 'Offset to horizontal Axis table-from beginning of BASE table-may be NULL'),
 		('Offset', 'VertAxis', None, None, 'Offset to vertical Axis table-from beginning of BASE table-may be NULL'),
+		('LOffset', 'VarStore', None, 'Version >= 0x00010001', 'Offset to variation store (may be NULL)'),
 	]),
 
 	('Axis', [

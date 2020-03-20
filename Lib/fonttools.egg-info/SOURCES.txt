@@ -93,6 +93,9 @@ Lib/fontTools/unicode.py
 Lib/fontTools/cffLib/__init__.py
 Lib/fontTools/cffLib/specializer.py
 Lib/fontTools/cffLib/width.py
+Lib/fontTools/colorLib/__init__.py
+Lib/fontTools/colorLib/builder.py
+Lib/fontTools/colorLib/errors.py
 Lib/fontTools/designspaceLib/__init__.py
 Lib/fontTools/encodings/MacRoman.py
 Lib/fontTools/encodings/StandardEncoding.py
@@ -152,6 +155,7 @@ Lib/fontTools/pens/qtPen.py
 Lib/fontTools/pens/recordingPen.py
 Lib/fontTools/pens/reportLabPen.py
 Lib/fontTools/pens/reverseContourPen.py
+Lib/fontTools/pens/roundingPen.py
 Lib/fontTools/pens/statisticsPen.py
 Lib/fontTools/pens/svgPathPen.py
 Lib/fontTools/pens/t2CharStringPen.py
@@ -291,6 +295,7 @@ Lib/fontTools/varLib/__init__.py
 Lib/fontTools/varLib/__main__.py
 Lib/fontTools/varLib/builder.py
 Lib/fontTools/varLib/cff.py
+Lib/fontTools/varLib/errors.py
 Lib/fontTools/varLib/featureVars.py
 Lib/fontTools/varLib/instancer.py
 Lib/fontTools/varLib/interpolatable.py
@@ -337,10 +342,13 @@ Tests/afmLib/afmLib_test.py
 Tests/afmLib/data/TestAFM.afm
 Tests/cffLib/cffLib_test.py
 Tests/cffLib/specializer_test.py
+Tests/cffLib/data/LinLibertine_RBI.otf
 Tests/cffLib/data/TestCFF2Widths.ttx
 Tests/cffLib/data/TestFDSelect4.ttx
 Tests/cffLib/data/TestOTF.ttx
 Tests/cffLib/data/TestSparseCFF2VF.ttx
+Tests/colorLib/__init__.py
+Tests/colorLib/builder_test.py
 Tests/designspaceLib/designspace_test.py
 Tests/designspaceLib/data/test.designspace
 Tests/encodings/codecs_test.py
@@ -633,6 +641,7 @@ Tests/mtiLib/data/mti/mark-to-ligature.txt
 Tests/mtiLib/data/mti/scripttable.ttx.GPOS
 Tests/mtiLib/data/mti/scripttable.ttx.GSUB
 Tests/mtiLib/data/mti/scripttable.txt
+Tests/otlLib/__init__.py
 Tests/otlLib/builder_test.py
 Tests/otlLib/maxContextCalc_test.py
 Tests/otlLib/data/gpos_91.ttx
@@ -720,6 +729,7 @@ Tests/ttLib/data/TestOTF-Regular.otx
 Tests/ttLib/data/TestTTF-Regular.ttx
 Tests/ttLib/data/TestTTFComplex-Regular.ttx
 Tests/ttLib/data/test_woff2_metadata.xml
+Tests/ttLib/tables/C_B_L_C_test.py
 Tests/ttLib/tables/C_F_F__2_test.py
 Tests/ttLib/tables/C_F_F_test.py
 Tests/ttLib/tables/C_P_A_L_test.py
@@ -763,6 +773,7 @@ Tests/ttLib/tables/data/C_F_F_.bin
 Tests/ttLib/tables/data/C_F_F_.ttx
 Tests/ttLib/tables/data/C_F_F__2.bin
 Tests/ttLib/tables/data/C_F_F__2.ttx
+Tests/ttLib/tables/data/NotoColorEmoji.subset.index_format_3.ttx
 Tests/ttLib/tables/data/_c_m_a_p_format_14.ttx
 Tests/ttLib/tables/data/_c_m_a_p_format_14_bw_compat.ttx
 Tests/ttLib/tables/data/_g_l_y_f_outline_flag_bit6.glyf.bin
@@ -1454,15 +1465,21 @@ Tests/varLib/data/InterpolateLayout3.designspace
 Tests/varLib/data/KerningMerging.designspace
 Tests/varLib/data/PartialInstancerTest-VF.ttx
 Tests/varLib/data/PartialInstancerTest2-VF.ttx
+Tests/varLib/data/SingleMaster.designspace
 Tests/varLib/data/SparseMasters.designspace
 Tests/varLib/data/TestCFF2.designspace
+Tests/varLib/data/TestCFF2Input.designspace
 Tests/varLib/data/TestNonMarkingCFF2.designspace
 Tests/varLib/data/TestSparseCFF2VF.designspace
 Tests/varLib/data/TestVVAR.designspace
+Tests/varLib/data/VarLibLocationTest.designspace
 Tests/varLib/data/test_vpal.designspace
 Tests/varLib/data/master_cff2/TestCFF2_Black.ttx
 Tests/varLib/data/master_cff2/TestCFF2_ExtraLight.ttx
 Tests/varLib/data/master_cff2/TestCFF2_Regular.ttx
+Tests/varLib/data/master_cff2_input/TestCFF2_Black.ttx
+Tests/varLib/data/master_cff2_input/TestCFF2_ExtraLight.ttx
+Tests/varLib/data/master_cff2_input/TestCFF2_Regular.ttx
 Tests/varLib/data/master_kerning_merging/0.ttx
 Tests/varLib/data/master_kerning_merging/1.ttx
 Tests/varLib/data/master_kerning_merging/2.ttx
@@ -1778,6 +1795,7 @@ Tests/varLib/data/test_results/BuildGvarCompositeExplicitDelta.ttx
 Tests/varLib/data/test_results/BuildMain.ttx
 Tests/varLib/data/test_results/BuildTestCFF2.ttx
 Tests/varLib/data/test_results/FeatureVars.ttx
+Tests/varLib/data/test_results/FeatureVars_rclt.ttx
 Tests/varLib/data/test_results/InterpolateLayout.ttx
 Tests/varLib/data/test_results/InterpolateLayout2.ttx
 Tests/varLib/data/test_results/InterpolateLayoutGPOS_1_diff.ttx
@@ -1811,6 +1829,7 @@ Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-400,100.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-400,62.5.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-900,100.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-900,62.5.ttx
+Tests/varLib/data/test_results/SingleMaster.ttx
 Tests/varLib/data/test_results/SparseMasters.ttx
 Tests/varLib/data/test_results/TestNonMarkingCFF2.ttx
 Tests/varLib/data/test_results/TestSparseCFF2VF.ttx
