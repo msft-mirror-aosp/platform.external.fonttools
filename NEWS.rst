@@ -1,3 +1,11 @@
+4.5.0 (released 2020-03-20)
+---------------------------
+
+- [designspaceLib] Added ``add{Axis,Source,Instance,Rule}Descriptor`` methods to
+  ``DesignSpaceDocument`` class, to initialize new descriptor objects using keyword
+  arguments, and at the same time append them to the current document (#1860).
+- [unicodedata] Update to Unicode 13.0 (#1859).
+
 4.4.3 (released 2020-03-13)
 ---------------------------
 
