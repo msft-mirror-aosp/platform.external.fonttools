@@ -15,8 +15,8 @@ scipy
 brotlipy>=0.7.0
 munkres
 
-[all:python_version < "3.8" and platform_python_implementation != "PyPy"]
-unicodedata2>=12.1.0
+[all:python_version < "3.9" and platform_python_implementation != "PyPy"]
+unicodedata2>=13.0.0
 
 [all:sys_platform == "darwin"]
 xattr
@@ -51,8 +51,8 @@ fs<3,>=2.2.0
 
 [unicode]
 
-[unicode:python_version < "3.8" and platform_python_implementation != "PyPy"]
-unicodedata2>=12.1.0
+[unicode:python_version < "3.9" and platform_python_implementation != "PyPy"]
+unicodedata2>=13.0.0
 
 [woff]
 zopfli>=0.1.4
