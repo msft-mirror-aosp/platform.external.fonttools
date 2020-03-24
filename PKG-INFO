@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.5.0
+Version: 4.6.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -413,6 +413,13 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.6.0 (released 2020-03-24)
+        ---------------------------
+        
+        - [varLib] Added support for building variable ``BASE`` table version 1.1 (#1858).
+        - [CPAL] Added ``fromRGBA`` method to ``Color`` class (#1861).
+        
         
         4.5.0 (released 2020-03-20)
         ---------------------------
@@ -2014,12 +2021,12 @@ Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
 Provides-Extra: plot
-Provides-Extra: woff
-Provides-Extra: symfont
-Provides-Extra: interpolatable
-Provides-Extra: ufo
-Provides-Extra: unicode
-Provides-Extra: lxml
-Provides-Extra: type1
 Provides-Extra: graphite
+Provides-Extra: symfont
+Provides-Extra: woff
+Provides-Extra: unicode
+Provides-Extra: type1
 Provides-Extra: all
+Provides-Extra: interpolatable
+Provides-Extra: lxml
+Provides-Extra: ufo
