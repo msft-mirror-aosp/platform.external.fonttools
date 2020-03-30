@@ -1467,6 +1467,7 @@ Tests/varLib/data/PartialInstancerTest-VF.ttx
 Tests/varLib/data/PartialInstancerTest2-VF.ttx
 Tests/varLib/data/SingleMaster.designspace
 Tests/varLib/data/SparseMasters.designspace
+Tests/varLib/data/TestBASE.designspace
 Tests/varLib/data/TestCFF2.designspace
 Tests/varLib/data/TestCFF2Input.designspace
 Tests/varLib/data/TestNonMarkingCFF2.designspace
@@ -1474,6 +1475,8 @@ Tests/varLib/data/TestSparseCFF2VF.designspace
 Tests/varLib/data/TestVVAR.designspace
 Tests/varLib/data/VarLibLocationTest.designspace
 Tests/varLib/data/test_vpal.designspace
+Tests/varLib/data/master_base_test/TestBASE.0.ttx
+Tests/varLib/data/master_base_test/TestBASE.900.ttx
 Tests/varLib/data/master_cff2/TestCFF2_Black.ttx
 Tests/varLib/data/master_cff2/TestCFF2_ExtraLight.ttx
 Tests/varLib/data/master_cff2/TestCFF2_Regular.ttx
@@ -1831,6 +1834,7 @@ Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-900,100.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-900,62.5.ttx
 Tests/varLib/data/test_results/SingleMaster.ttx
 Tests/varLib/data/test_results/SparseMasters.ttx
+Tests/varLib/data/test_results/TestBASE.ttx
 Tests/varLib/data/test_results/TestNonMarkingCFF2.ttx
 Tests/varLib/data/test_results/TestSparseCFF2VF.ttx
 Tests/varLib/data/test_results/TestVVAR.ttx
