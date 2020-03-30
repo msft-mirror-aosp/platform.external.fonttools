@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.4.2
+Version: 4.6.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -413,6 +413,28 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.6.0 (released 2020-03-24)
+        ---------------------------
+        
+        - [varLib] Added support for building variable ``BASE`` table version 1.1 (#1858).
+        - [CPAL] Added ``fromRGBA`` method to ``Color`` class (#1861).
+        
+        
+        4.5.0 (released 2020-03-20)
+        ---------------------------
+        
+        - [designspaceLib] Added ``add{Axis,Source,Instance,Rule}Descriptor`` methods to
+          ``DesignSpaceDocument`` class, to initialize new descriptor objects using keyword
+          arguments, and at the same time append them to the current document (#1860).
+        - [unicodedata] Update to Unicode 13.0 (#1859).
+        
+        4.4.3 (released 2020-03-13)
+        ---------------------------
+        
+        - [varLib] Always build ``gvar`` table for TrueType-flavored Variable Fonts,
+          even if it contains no variation data. The table is required according to
+          the OpenType spec (#1855, #1857).
         
         4.4.2 (released 2020-03-12)
         ---------------------------
@@ -1998,13 +2020,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: ufo
-Provides-Extra: interpolatable
 Provides-Extra: plot
 Provides-Extra: graphite
-Provides-Extra: unicode
 Provides-Extra: symfont
-Provides-Extra: all
 Provides-Extra: woff
+Provides-Extra: unicode
 Provides-Extra: type1
+Provides-Extra: all
+Provides-Extra: interpolatable
 Provides-Extra: lxml
+Provides-Extra: ufo
