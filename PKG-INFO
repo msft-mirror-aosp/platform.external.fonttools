@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.6.0
+Version: 4.7.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -413,6 +413,17 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.7.0 (released 2020-04-03)
+        ---------------------------
+        
+        - [cu2qu] Added ``fontTools.cu2qu`` package, imported from the original
+          `cu2qu <https://github.com/googlefonts/cu2qu>`__ project. The ``cu2qu.pens`` module
+          was moved to ``fontTools.pens.cu2quPen``. The optional cu2qu extension module
+          can be compiled by installing `Cython <https://cython.org/>` before installing
+          fonttools from source (i.e. git repo or sdist tarball). The wheel package that
+          is published on PyPI (i.e. the one ``pip`` downloads, unless ``--no-binary``
+          option is used), will continue to be pure-Python for now (#1868).
         
         4.6.0 (released 2020-03-24)
         ---------------------------
@@ -2020,13 +2031,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: plot
-Provides-Extra: graphite
-Provides-Extra: symfont
-Provides-Extra: woff
 Provides-Extra: unicode
-Provides-Extra: type1
-Provides-Extra: all
-Provides-Extra: interpolatable
-Provides-Extra: lxml
 Provides-Extra: ufo
+Provides-Extra: woff
+Provides-Extra: type1
+Provides-Extra: graphite
+Provides-Extra: all
+Provides-Extra: lxml
+Provides-Extra: plot
+Provides-Extra: symfont
+Provides-Extra: interpolatable
