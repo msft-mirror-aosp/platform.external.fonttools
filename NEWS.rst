@@ -1,10 +1,26 @@
+4.8.0 (released 2020-04-16)
+---------------------------
+
+- [feaLib] If Parser is initialized without a ``glyphNames`` parameter, it cannot
+  distinguish between a glyph name containing an hyphen, or a range of glyph names;
+  instead of raising an error, it now interprets them as literal glyph names, while
+  also outputting a logging warning to alert user about the ambiguity (#1768, #1870).
+- [feaLib] When serializing AST to string, emit spaces around hyphens that denote
+  ranges. Also, fixed an issue with CID ranges when round-tripping AST->string->AST
+  (#1872).
+- [Snippets/otf2ttf] In otf2ttf.py script update LSB in hmtx to match xMin (#1873).
+- [colorLib] Added experimental support for building ``COLR`` v1 tables as per
+  the `colr-gradients-spec <https://github.com/googlefonts/colr-gradients-spec/blob/master/colr-gradients-spec.md>`__
+  draft proposal. **NOTE**: both the API and the XML dump of ``COLR`` v1 are
+  susceptible to change while the proposal is being discussed and formalized (#1822).
+
 4.7.0 (released 2020-04-03)
 ---------------------------
 
 - [cu2qu] Added ``fontTools.cu2qu`` package, imported from the original
   `cu2qu <https://github.com/googlefonts/cu2qu>`__ project. The ``cu2qu.pens`` module
   was moved to ``fontTools.pens.cu2quPen``. The optional cu2qu extension module
-  can be compiled by installing `Cython <https://cython.org/>` before installing
+  can be compiled by installing `Cython <https://cython.org/>`__ before installing
   fonttools from source (i.e. git repo or sdist tarball). The wheel package that
   is published on PyPI (i.e. the one ``pip`` downloads, unless ``--no-binary``
   option is used), will continue to be pure-Python for now (#1868).
