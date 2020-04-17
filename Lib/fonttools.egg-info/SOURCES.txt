@@ -519,6 +519,7 @@ Tests/feaLib/data/GSUB_6.fea
 Tests/feaLib/data/GSUB_6.ttx
 Tests/feaLib/data/GSUB_8.fea
 Tests/feaLib/data/GSUB_8.ttx
+Tests/feaLib/data/GSUB_error.fea
 Tests/feaLib/data/GlyphClassDef.fea
 Tests/feaLib/data/GlyphClassDef.ttx
 Tests/feaLib/data/LigatureCaretByIndex.fea
@@ -577,6 +578,8 @@ Tests/feaLib/data/bug568.fea
 Tests/feaLib/data/bug568.ttx
 Tests/feaLib/data/bug633.fea
 Tests/feaLib/data/bug633.ttx
+Tests/feaLib/data/cid_range.fea
+Tests/feaLib/data/cid_range.ttx
 Tests/feaLib/data/enum.fea
 Tests/feaLib/data/enum.ttx
 Tests/feaLib/data/feature_aalt.fea
@@ -873,6 +876,7 @@ Tests/ttLib/data/test_woff2_metadata.xml
 Tests/ttLib/tables/C_B_L_C_test.py
 Tests/ttLib/tables/C_F_F__2_test.py
 Tests/ttLib/tables/C_F_F_test.py
+Tests/ttLib/tables/C_O_L_R_test.py
 Tests/ttLib/tables/C_P_A_L_test.py
 Tests/ttLib/tables/M_V_A_R_test.py
 Tests/ttLib/tables/O_S_2f_2_test.py
