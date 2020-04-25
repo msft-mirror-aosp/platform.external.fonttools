@@ -10,6 +10,7 @@ third_party {
     value: "https://github.com/fonttools/fonttools/releases/download/4.8.0/fonttools-4.8.0.zip"
   }
   version: "4.8.0"
+  license_type: NOTICE
   last_upgrade_date {
     year: 2020
     month: 4
