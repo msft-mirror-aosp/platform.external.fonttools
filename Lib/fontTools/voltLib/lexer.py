@@ -39,13 +39,10 @@ class Lexer(object):
             if token_type not in {Lexer.NEWLINE}:
                 return (token_type, token, location)
 
-    def location_(self):
-        column = self.pos_ - self.line_start_ + 1
-        return (self.filename_ or "<volt>", self.line_, column)
-
     def next_(self):
         self.scan_over_(Lexer.CHAR_WHITESPACE_)
-        location = self.location_()
+        column = self.pos_ - self.line_start_ + 1
+        location = (self.filename_, self.line_, column)
         start = self.pos_
         text = self.text_
         limit = len(text)

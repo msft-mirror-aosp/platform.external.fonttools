@@ -1185,7 +1185,7 @@ class ParserTest(unittest.TestCase):
         self.assertRaisesRegex(
             FeatureLibError,
             'In reverse chaining single substitutions, the replacement '
-            r'\(after "by"\) must be a single glyph or glyph class',
+            '\(after "by"\) must be a single glyph or glyph class',
             self.parse, "feature test {rsub f_i by f i;} test;")
 
     def test_script(self):

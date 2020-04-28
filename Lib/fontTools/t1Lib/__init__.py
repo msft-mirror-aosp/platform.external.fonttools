@@ -273,9 +273,7 @@ def writeOther(path, data, dohex=False):
 # decryption tools
 
 EEXECBEGIN = b"currentfile eexec"
-# The spec allows for 512 ASCII zeros interrupted by arbitrary whitespace to
-# follow eexec
-EEXECEND = re.compile(b'(0[ \t\r\n]*){512}', flags=re.M)
+EEXECEND = b'0' * 64
 EEXECINTERNALEND = b"currentfile closefile"
 EEXECBEGINMARKER = b"%-- eexec start\r"
 EEXECENDMARKER = b"%-- eexec end\r"
@@ -314,10 +312,9 @@ def findEncryptedChunks(data):
 		if eBegin < 0:
 			break
 		eBegin = eBegin + len(EEXECBEGIN) + 1
-		endMatch = EEXECEND.search(data, eBegin)
-		if endMatch is None:
+		eEnd = data.find(EEXECEND, eBegin)
+		if eEnd < 0:
 			raise T1Error("can't find end of eexec part")
-		eEnd = endMatch.start()
 		cypherText = data[eBegin:eEnd + 2]
 		if isHex(cypherText[:4]):
 			cypherText = deHexString(cypherText)

@@ -71,14 +71,13 @@ def overlayFeatureVariations(conditionalSubstitutions):
     and rules with the same Box merged.  The more specific rules appear earlier
     in the resulting list.  Moreover, instead of just a dictionary of substitutions,
     a list of dictionaries is returned for substitutions corresponding to each
-    unique space, with each dictionary being identical to one of the input
+    uniq space, with each dictionary being identical to one of the input
     substitution dictionaries.  These dictionaries are not merged to allow data
     sharing when they are converted into font tables.
 
     Example:
     >>> condSubst = [
     ...     # A list of (Region, Substitution) tuples.
-    ...     ([{"wght": (0.5, 1.0)}], {"dollar": "dollar.rvrn"}),
     ...     ([{"wght": (0.5, 1.0)}], {"dollar": "dollar.rvrn"}),
     ...     ([{"wdth": (0.5, 1.0)}], {"cent": "cent.rvrn"}),
     ... ]
@@ -108,8 +107,7 @@ def overlayFeatureVariations(conditionalSubstitutions):
     # rules for the same region.
     merged = OrderedDict()
     for key,value in reversed(conditionalSubstitutions):
-        key = tuple(sorted((hashdict(cleanupBox(k)) for k in key),
-                           key=lambda d: tuple(sorted(d.items()))))
+        key = tuple(sorted(hashdict(cleanupBox(k)) for k in key))
         if key in merged:
             merged[key].update(value)
         else:
@@ -285,7 +283,6 @@ def addFeatureVariationsRaw(font, conditionalSubstitutions):
 
     rvrnFeature = buildFeatureRecord('rvrn', [])
     gsub.FeatureList.FeatureRecord.append(rvrnFeature)
-    gsub.FeatureList.FeatureCount = len(gsub.FeatureList.FeatureRecord)
 
     sortFeatureList(gsub)
     rvrnFeatureIndex = gsub.FeatureList.FeatureRecord.index(rvrnFeature)
@@ -345,11 +342,10 @@ def buildGSUB():
     langrec = ot.LangSysRecord()
     langrec.LangSys = ot.LangSys()
     langrec.LangSys.ReqFeatureIndex = 0xFFFF
-    langrec.LangSys.FeatureIndex = []
+    langrec.LangSys.FeatureIndex = [0]
     srec.Script.DefaultLangSys = langrec.LangSys
 
     gsub.ScriptList.ScriptRecord.append(srec)
-    gsub.ScriptList.ScriptCount = 1
     gsub.FeatureVariations = None
 
     return fontTable
@@ -384,7 +380,6 @@ def buildSubstitutionLookups(gsub, allSubstitutions):
         lookup = buildLookup([buildSingleSubstSubtable(substMap)])
         gsub.LookupList.Lookup.append(lookup)
         assert gsub.LookupList.Lookup[lookupMap[subst]] is lookup
-    gsub.LookupList.LookupCount = len(gsub.LookupList.Lookup)
     return lookupMap
 
 
@@ -402,7 +397,6 @@ def buildFeatureRecord(featureTag, lookupListIndices):
     fr.FeatureTag = featureTag
     fr.Feature = ot.Feature()
     fr.Feature.LookupListIndex = lookupListIndices
-    fr.Feature.populateDefaults()
     return fr
 
 

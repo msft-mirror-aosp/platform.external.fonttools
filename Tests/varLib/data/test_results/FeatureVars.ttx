@@ -33,8 +33,9 @@
         <Script>
           <DefaultLangSys>
             <ReqFeatureIndex value="65535"/>
-            <!-- FeatureCount=1 -->
+            <!-- FeatureCount=2 -->
             <FeatureIndex index="0" value="0"/>
+            <FeatureIndex index="1" value="0"/>
           </DefaultLangSys>
           <!-- LangSysCount=0 -->
         </Script>

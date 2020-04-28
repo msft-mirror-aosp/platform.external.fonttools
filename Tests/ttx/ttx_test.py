@@ -953,7 +953,7 @@ def test_main_getopterror_missing_directory():
             ttx.main(args)
 
 
-def test_main_keyboard_interrupt(tmpdir, monkeypatch, caplog):
+def test_main_keyboard_interrupt(tmpdir, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         inpath = os.path.join("Tests", "ttx", "data", "TestTTF.ttx")
         outpath = tmpdir.join("TestTTF.ttf")
@@ -963,7 +963,8 @@ def test_main_keyboard_interrupt(tmpdir, monkeypatch, caplog):
         )
         ttx.main(args)
 
-    assert "(Cancelled.)" in caplog.text
+    out, err = capsys.readouterr()
+    assert "(Cancelled.)" in err
 
 
 @pytest.mark.skipif(
@@ -981,7 +982,7 @@ def test_main_system_exit(tmpdir, monkeypatch):
         ttx.main(args)
 
 
-def test_main_ttlib_error(tmpdir, monkeypatch, caplog):
+def test_main_ttlib_error(tmpdir, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         inpath = os.path.join("Tests", "ttx", "data", "TestTTF.ttx")
         outpath = tmpdir.join("TestTTF.ttf")
@@ -993,14 +994,15 @@ def test_main_ttlib_error(tmpdir, monkeypatch, caplog):
         )
         ttx.main(args)
 
-    assert "Test error" in caplog.text
+    out, err = capsys.readouterr()
+    assert "Test error" in err
 
 
 @pytest.mark.skipif(
     sys.platform == "win32",
     reason="waitForKeyPress function causes test to hang on Windows platform",
 )
-def test_main_base_exception(tmpdir, monkeypatch, caplog):
+def test_main_base_exception(tmpdir, monkeypatch, capsys):
     with pytest.raises(SystemExit):
         inpath = os.path.join("Tests", "ttx", "data", "TestTTF.ttx")
         outpath = tmpdir.join("TestTTF.ttf")
@@ -1012,7 +1014,8 @@ def test_main_base_exception(tmpdir, monkeypatch, caplog):
         )
         ttx.main(args)
 
-    assert "Unhandled exception has occurred" in caplog.text
+    out, err = capsys.readouterr()
+    assert "Unhandled exception has occurred" in err
 
 
 # ---------------------------

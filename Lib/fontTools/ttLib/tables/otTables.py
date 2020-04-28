@@ -1130,7 +1130,6 @@ class LigatureSubst(FormatSwitchingBaseTable):
 			lig.LigGlyph = attrs["glyph"]
 			components = attrs["components"]
 			lig.Component = components.split(",") if components else []
-			lig.CompCount = len(lig.Component)
 			ligs.append(lig)
 
 
@@ -1496,7 +1495,7 @@ def _buildClasses():
 	import re
 	from .otData import otData
 
-	formatPat = re.compile(r"([A-Za-z0-9]+)Format(\d+)$")
+	formatPat = re.compile("([A-Za-z0-9]+)Format(\d+)$")
 	namespace = globals()
 
 	# populate module with classes

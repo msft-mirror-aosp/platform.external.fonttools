@@ -6,7 +6,6 @@
 
 from __future__ import print_function, division, absolute_import
 from fontTools.misc.py23 import *
-from fontTools.misc.fixedTools import otRound
 from numbers import Number
 import math
 import operator
@@ -21,11 +20,10 @@ def calcBounds(array):
     ys = [y for x, y in array]
     return min(xs), min(ys), max(xs), max(ys)
 
-def calcIntBounds(array, round=otRound):
+def calcIntBounds(array):
     """Return the integer bounding rectangle of a 2D points array as a
     tuple: (xMin, yMin, xMax, yMax)
-    Values are rounded to closest integer towards +Infinity using otRound
-    function by default, unless an optional 'round' function is passed.
+    Values are rounded to closest integer.
     """
     return tuple(round(v) for v in calcBounds(array))
 
