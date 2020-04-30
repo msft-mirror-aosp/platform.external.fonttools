@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.8.0
+Version: 4.9.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -379,7 +379,7 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         Antoine Leca, Werner Lemberg, Tal Leming, Peter Lofting, Cosimo Lupo,
         Masaya Nakamura, Dave Opstad, Laurence Penney, Roozbeh Pournader, Garret
         Rieger, Read Roberts, Guido van Rossum, Just van Rossum, Andreas Seidel,
-        Georg Seifert, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov,
+        Georg Seifert, Chris Simpkins, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov,
         Paul Wise.
         
         Copyrights
@@ -413,6 +413,37 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.9.0 (released 2020-04-29)
+        ---------------------------
+        
+        - [subset] Fixed subsetting of FeatureVariations table. The subsetter no longer drops
+          FeatureVariationRecords that have empty substitutions as that will keep the search
+          going and thus change the logic. It will only drop empty records that occur at the
+          end of the FeatureVariationRecords array (#1881).
+        - [subset] Remove FeatureVariations table and downgrade GSUB/GPOS to version 0x10000
+          when FeatureVariations contain no FeatureVariationRecords after subsetting (#1903).
+        - [agl] Add support for legacy Adobe Glyph List of glyph names in ``fontTools.agl``
+          (#1895).
+        - [feaLib] Ignore superfluous script statements (#1883).
+        - [feaLib] Hide traceback by default on ``fonttools feaLib`` command line.
+          Use ``--traceback`` option to show (#1898).
+        - [feaLib] Check lookup index in chaining sub/pos lookups and print better error
+          message (#1896, #1897).
+        - [feaLib] Fix building chained alt substitutions (#1902).
+        - [Doc] Included all fontTools modules in the sphinx-generated documentation, and
+          published it to ReadTheDocs for continuous documentation of the fontTools project
+          (#1333). Check it out at https://fonttools.readthedocs.io/. Thanks to Chris Simpkins!
+        - [transform] The ``Transform`` class is now subclass of ``typing.NamedTuple``. No
+          change in functionality (#1904).
+        
+        
+        4.8.1 (released 2020-04-17)
+        ---------------------------
+        
+        - [feaLib] Fixed ``AttributeError: 'NoneType' has no attribute 'getAlternateGlyphs'``
+          when ``aalt`` feature references a chain contextual substitution lookup
+          (googlefonts/fontmake#648, #1878).
         
         4.8.0 (released 2020-04-16)
         ---------------------------
@@ -2047,13 +2078,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: graphite
 Provides-Extra: interpolatable
-Provides-Extra: all
-Provides-Extra: unicode
-Provides-Extra: symfont
-Provides-Extra: lxml
-Provides-Extra: plot
-Provides-Extra: type1
-Provides-Extra: ufo
 Provides-Extra: woff
+Provides-Extra: lxml
+Provides-Extra: type1
+Provides-Extra: unicode
+Provides-Extra: graphite
+Provides-Extra: all
+Provides-Extra: ufo
+Provides-Extra: symfont
+Provides-Extra: plot

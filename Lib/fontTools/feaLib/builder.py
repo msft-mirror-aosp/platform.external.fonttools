@@ -706,6 +706,10 @@ class Builder(object):
             raise FeatureLibError(
                 "Language statements are not allowed "
                 "within \"feature %s\"" % self.cur_feature_name_, location)
+        if self.cur_feature_name_ is None:
+            raise FeatureLibError(
+                "Language statements are not allowed "
+                "within standalone lookup blocks", location)
         self.cur_lookup_ = None
 
         key = (self.script_, language, self.cur_feature_name_)
@@ -772,6 +776,13 @@ class Builder(object):
             raise FeatureLibError(
                 "Script statements are not allowed "
                 "within \"feature %s\"" % self.cur_feature_name_, location)
+        if self.cur_feature_name_ is None:
+            raise FeatureLibError(
+                "Script statements are not allowed "
+                "within standalone lookup blocks", location)
+        if self.language_systems == {(script, 'dflt')}:
+            # Nothing to do.
+            return
         self.cur_lookup_ = None
         self.script_ = script
         self.lookupflag_ = 0
@@ -817,7 +828,7 @@ class Builder(object):
         if prefix or suffix:
             chain = self.get_lookup_(location, ChainContextSubstBuilder)
             lookup = self.get_chained_lookup_(location, AlternateSubstBuilder)
-            chain.substitutions.append((prefix, [glyph], suffix, [lookup]))
+            chain.substitutions.append((prefix, [{glyph}], suffix, [lookup]))
         else:
             lookup = self.get_lookup_(location, AlternateSubstBuilder)
         if glyph in lookup.alternates:
@@ -1252,6 +1263,10 @@ class ChainContextPosBuilder(LookupBuilder):
             st.PosLookupRecord = []
             for sequenceIndex, l in enumerate(lookups):
                 if l is not None:
+                    if l.lookup_index is None:
+                        raise FeatureLibError('Missing index of the specified '
+                            'lookup, might be a substitution lookup',
+                            self.location)
                     rec = otTables.PosLookupRecord()
                     rec.SequenceIndex = sequenceIndex
                     rec.LookupListIndex = l.lookup_index
@@ -1299,6 +1314,10 @@ class ChainContextSubstBuilder(LookupBuilder):
             st.SubstLookupRecord = []
             for sequenceIndex, l in enumerate(lookups):
                 if l is not None:
+                    if l.lookup_index is None:
+                        raise FeatureLibError('Missing index of the specified '
+                            'lookup, might be a positioning lookup',
+                            self.location)
                     rec = otTables.SubstLookupRecord()
                     rec.SequenceIndex = sequenceIndex
                     rec.LookupListIndex = l.lookup_index
@@ -1311,9 +1330,10 @@ class ChainContextSubstBuilder(LookupBuilder):
             if lookups == self.SUBTABLE_BREAK_:
                 continue
             for lookup in lookups:
-                alts = lookup.getAlternateGlyphs()
-                for glyph, replacements in alts.items():
-                    result.setdefault(glyph, set()).update(replacements)
+                if lookup is not None:
+                    alts = lookup.getAlternateGlyphs()
+                    for glyph, replacements in alts.items():
+                        result.setdefault(glyph, set()).update(replacements)
         return result
 
     def find_chainable_single_subst(self, glyphs):

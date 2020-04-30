@@ -8,16 +8,25 @@ misc
    arrayTools
    bezierTools
    classifyTools
+   cliTools
    eexec
    encodingTools
+   etree
+   filenames
    fixedTools
+   intTools
    loggingTools
-   sstruct
+   macCreatorType
+   macRes
    psCharStrings
+   psLib
+   psOperators
+   py23
+   sstruct
+   symfont
    testTools
    textTools
    timeTools
    transform
    xmlReader
    xmlWriter
-
