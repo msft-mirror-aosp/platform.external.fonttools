@@ -1321,8 +1321,14 @@ def subset_features(self, feature_indices):
 @_add_method(otTables.FeatureVariations)
 def subset_features(self, feature_indices):
 	self.ensureDecompiled()
-	self.FeaturVariationRecord = [r for r in self.FeatureVariationRecord
-					if r.FeatureTableSubstitution.subset_features(feature_indices)]
+	for r in self.FeatureVariationRecord:
+		r.FeatureTableSubstitution.subset_features(feature_indices)
+	# Prune empty records at the end only
+	# https://github.com/fonttools/fonttools/issues/1881
+	while (self.FeatureVariationRecord and
+		not self.FeatureVariationRecord[-1]
+			.FeatureTableSubstitution.SubstitutionCount):
+		self.FeatureVariationRecord.pop()
 	self.FeatureVariationCount = len(self.FeatureVariationRecord)
 	return bool(self.FeatureVariationCount)
 
@@ -1625,11 +1631,11 @@ def prune_post_subset(self, font, options):
 	#if table.ScriptList and not table.ScriptList.ScriptRecord:
 	#	table.ScriptList = None
 
-	if not table.FeatureList and hasattr(table, 'FeatureVariations'):
-		table.FeatureVariations = None
+	if hasattr(table, 'FeatureVariations'):
+		if not (table.FeatureList and table.FeatureVariations.FeatureVariationRecord):
+			table.FeatureVariations = None
 
-	if hasattr(table, 'FeatureVariations') and not table.FeatureVariations:
-		if table.Version == 0x00010001:
+		if not table.FeatureVariations and table.Version == 0x00010001:
 			table.Version = 0x00010000
 
 	return True
