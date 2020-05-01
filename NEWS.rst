@@ -1,3 +1,34 @@
+4.9.0 (released 2020-04-29)
+---------------------------
+
+- [subset] Fixed subsetting of FeatureVariations table. The subsetter no longer drops
+  FeatureVariationRecords that have empty substitutions as that will keep the search
+  going and thus change the logic. It will only drop empty records that occur at the
+  end of the FeatureVariationRecords array (#1881).
+- [subset] Remove FeatureVariations table and downgrade GSUB/GPOS to version 0x10000
+  when FeatureVariations contain no FeatureVariationRecords after subsetting (#1903).
+- [agl] Add support for legacy Adobe Glyph List of glyph names in ``fontTools.agl``
+  (#1895).
+- [feaLib] Ignore superfluous script statements (#1883).
+- [feaLib] Hide traceback by default on ``fonttools feaLib`` command line.
+  Use ``--traceback`` option to show (#1898).
+- [feaLib] Check lookup index in chaining sub/pos lookups and print better error
+  message (#1896, #1897).
+- [feaLib] Fix building chained alt substitutions (#1902).
+- [Doc] Included all fontTools modules in the sphinx-generated documentation, and
+  published it to ReadTheDocs for continuous documentation of the fontTools project
+  (#1333). Check it out at https://fonttools.readthedocs.io/. Thanks to Chris Simpkins!
+- [transform] The ``Transform`` class is now subclass of ``typing.NamedTuple``. No
+  change in functionality (#1904).
+
+
+4.8.1 (released 2020-04-17)
+---------------------------
+
+- [feaLib] Fixed ``AttributeError: 'NoneType' has no attribute 'getAlternateGlyphs'``
+  when ``aalt`` feature references a chain contextual substitution lookup
+  (googlefonts/fontmake#648, #1878).
+
 4.8.0 (released 2020-04-16)
 ---------------------------
 
