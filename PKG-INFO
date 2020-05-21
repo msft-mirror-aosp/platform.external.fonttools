@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.10.0
+Version: 4.10.2
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -211,15 +211,15 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
         Jelle Bosma, Sascha Brawer, Tom Byrer, Frédéric Coiffier, Vincent
-        Connare, Dave Crossland, Simon Daniels, Peter Dekkers, Behdad Esfahbod,
-        Behnam Esfahbod, Hannes Famira, Sam Fishman, Matt Fontaine, Yannis
-        Haralambous, Greg Hitchcock, Jeremie Hornus, Khaled Hosny, John Hudson,
-        Denis Moyogo Jacquerye, Jack Jansen, Tom Kacvinsky, Jens Kutilek,
-        Antoine Leca, Werner Lemberg, Tal Leming, Peter Lofting, Cosimo Lupo,
-        Masaya Nakamura, Dave Opstad, Laurence Penney, Roozbeh Pournader, Garret
-        Rieger, Read Roberts, Guido van Rossum, Just van Rossum, Andreas Seidel,
-        Georg Seifert, Chris Simpkins, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov,
-        Paul Wise.
+        Connare, David Corbett, Dave Crossland, Simon Daniels, Peter Dekkers,
+        Behdad Esfahbod, Behnam Esfahbod, Hannes Famira, Sam Fishman, Matt
+        Fontaine, Yannis Haralambous, Greg Hitchcock, Jeremie Hornus, Khaled
+        Hosny, John Hudson, Denis Moyogo Jacquerye, Jack Jansen, Tom Kacvinsky,
+        Jens Kutilek, Antoine Leca, Werner Lemberg, Tal Leming, Peter Lofting,
+        Cosimo Lupo, Masaya Nakamura, Dave Opstad, Laurence Penney, Roozbeh
+        Pournader, Garret Rieger, Read Roberts, Guido van Rossum, Just van
+        Rossum, Andreas Seidel, Georg Seifert, Chris Simpkins, Miguel Sousa,
+        Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul Wise.
         
         Copyrights
         ~~~~~~~~~~
@@ -252,6 +252,25 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.10.2 (released 2020-05-20)
+        ----------------------------
+        
+        - [sfnt] Fixed ``NameError: SimpleNamespace`` while reading TTC header. The regression
+          was introduced with 4.10.1 after removing ``py23`` star import.
+        
+        4.10.1 (released 2020-05-19)
+        ----------------------------
+        
+        - [sfnt] Make ``SFNTReader`` pickleable even when TTFont is loaded with lazy=True
+          option and thus keeps a reference to an external file (#1962, #1967).
+        - [feaLib.ast] Restore backward compatibility (broken in 4.10 with #1905) for
+          ``ChainContextPosStatement`` and ``ChainContextSubstStatement`` classes.
+          Make them accept either list of lookups or list of lists of lookups (#1961).
+        - [docs] Document some modules in ``fontTools.misc`` package: ``arrayTools``,
+          ``bezierTools`` ``cliTools`` and ``eexec`` (#1956).
+        - [ttLib._n_a_m_e] Fixed ``findMultilingualName()`` when name record's ``string`` is
+          encoded as bytes sequence (#1963).
         
         4.10.0 (released 2020-05-15)
         ----------------------------
@@ -1945,13 +1964,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: interpolatable
-Provides-Extra: ufo
-Provides-Extra: graphite
-Provides-Extra: lxml
 Provides-Extra: unicode
+Provides-Extra: all
+Provides-Extra: ufo
+Provides-Extra: interpolatable
+Provides-Extra: graphite
 Provides-Extra: type1
+Provides-Extra: symfont
+Provides-Extra: lxml
 Provides-Extra: plot
 Provides-Extra: woff
-Provides-Extra: symfont
-Provides-Extra: all
