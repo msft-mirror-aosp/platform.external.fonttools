@@ -22,6 +22,9 @@ def reload_font(font):
     """(De)serialize to get final binary layout."""
     buf = BytesIO()
     font.save(buf)
+    # Close the font to release filesystem resources so that on Windows the tearDown
+    # method can successfully remove the temporary directory created during setUp.
+    font.close()
     buf.seek(0)
     return TTFont(buf)
 
@@ -215,6 +218,30 @@ class BuildTest(unittest.TestCase):
             font_name="TestFamily",
             tables=["fvar", "GSUB"],
             expected_ttx_name="FeatureVars",
+            save_before_dump=True,
+        )
+
+    def test_varlib_build_feature_variations_whole_range(self):
+        """Designspace file contains <rules> element specifying the entire design
+        space, used to build GSUB FeatureVariations table.
+        """
+        self._run_varlib_build_test(
+            designspace_name="FeatureVarsWholeRange",
+            font_name="TestFamily",
+            tables=["fvar", "GSUB"],
+            expected_ttx_name="FeatureVarsWholeRange",
+            save_before_dump=True,
+        )
+
+    def test_varlib_build_feature_variations_whole_range_empty(self):
+        """Designspace file contains <rules> element without a condition, specifying
+        the entire design space, used to build GSUB FeatureVariations table.
+        """
+        self._run_varlib_build_test(
+            designspace_name="FeatureVarsWholeRangeEmpty",
+            font_name="TestFamily",
+            tables=["fvar", "GSUB"],
+            expected_ttx_name="FeatureVarsWholeRange",
             save_before_dump=True,
         )
 
