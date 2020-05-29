@@ -750,6 +750,7 @@ Tests/feaLib/data/spec9f.fea
 Tests/feaLib/data/spec9f.ttx
 Tests/feaLib/data/spec9g.fea
 Tests/feaLib/data/spec9g.ttx
+Tests/feaLib/data/test.fea
 Tests/feaLib/data/include/include1.fea
 Tests/feaLib/data/include/include3.fea
 Tests/feaLib/data/include/include4.fea
@@ -757,7 +758,9 @@ Tests/feaLib/data/include/include5.fea
 Tests/feaLib/data/include/include6.fea
 Tests/feaLib/data/include/includemissingfile.fea
 Tests/feaLib/data/include/includeself.fea
+Tests/feaLib/data/include/test.fea
 Tests/feaLib/data/include/subdir/include2.fea
+Tests/feaLib/data/include/test.ufo/features.fea
 Tests/fontBuilder/fontBuilder_test.py
 Tests/fontBuilder/data/test.otf.ttx
 Tests/fontBuilder/data/test.ttf.ttx
@@ -1663,6 +1666,7 @@ Tests/ufoLib/testdata/TestFont1 (UFO3).ufo/glyphs/j.glif
 Tests/ufoLib/testdata/TestFont1 (UFO3).ufo/glyphs/k.glif
 Tests/ufoLib/testdata/TestFont1 (UFO3).ufo/glyphs/l.glif
 Tests/ufoLib/testdata/TestFont1 (UFO3).ufo/glyphs/space.glif
+Tests/ufoLib/testdata/UFO3-Read Data.ufo/groups.plist
 Tests/ufoLib/testdata/UFO3-Read Data.ufo/metainfo.plist
 Tests/ufoLib/testdata/UFO3-Read Data.ufo/data/org.unifiedfontobject.file.txt
 Tests/ufoLib/testdata/UFO3-Read Data.ufo/data/org.unifiedfontobject.directory/foo.txt
