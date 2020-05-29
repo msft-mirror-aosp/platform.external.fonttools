@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.10.2
+Version: 4.11.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -252,6 +252,16 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.11.0 (released 2020-05-28)
+        ----------------------------
+        
+        - [feaLib] Introduced ``includeDir`` parameter on Parser and IncludingLexer to
+          explicitly specify the directory to search when ``include()`` statements are
+          encountered (#1973).
+        - [ufoLib] Silently delete duplicate glyphs within the same kerning group when reading
+          groups (#1970).
+        - [ttLib] Set version of COLR table when decompiling COLRv1 (commit 9d8a7e2).
         
         4.10.2 (released 2020-05-20)
         ----------------------------
@@ -1964,13 +1974,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: unicode
-Provides-Extra: all
-Provides-Extra: ufo
-Provides-Extra: interpolatable
-Provides-Extra: graphite
-Provides-Extra: type1
-Provides-Extra: symfont
-Provides-Extra: lxml
 Provides-Extra: plot
+Provides-Extra: symfont
+Provides-Extra: interpolatable
+Provides-Extra: lxml
+Provides-Extra: ufo
 Provides-Extra: woff
+Provides-Extra: graphite
+Provides-Extra: all
+Provides-Extra: type1
+Provides-Extra: unicode
