@@ -1,10 +1,114 @@
+4.11.0 (released 2020-05-28)
+----------------------------
+
+- [feaLib] Introduced ``includeDir`` parameter on Parser and IncludingLexer to
+  explicitly specify the directory to search when ``include()`` statements are
+  encountered (#1973).
+- [ufoLib] Silently delete duplicate glyphs within the same kerning group when reading
+  groups (#1970).
+- [ttLib] Set version of COLR table when decompiling COLRv1 (commit 9d8a7e2).
+
+4.10.2 (released 2020-05-20)
+----------------------------
+
+- [sfnt] Fixed ``NameError: SimpleNamespace`` while reading TTC header. The regression
+  was introduced with 4.10.1 after removing ``py23`` star import.
+
+4.10.1 (released 2020-05-19)
+----------------------------
+
+- [sfnt] Make ``SFNTReader`` pickleable even when TTFont is loaded with lazy=True
+  option and thus keeps a reference to an external file (#1962, #1967).
+- [feaLib.ast] Restore backward compatibility (broken in 4.10 with #1905) for
+  ``ChainContextPosStatement`` and ``ChainContextSubstStatement`` classes.
+  Make them accept either list of lookups or list of lists of lookups (#1961).
+- [docs] Document some modules in ``fontTools.misc`` package: ``arrayTools``,
+  ``bezierTools`` ``cliTools`` and ``eexec`` (#1956).
+- [ttLib._n_a_m_e] Fixed ``findMultilingualName()`` when name record's ``string`` is
+  encoded as bytes sequence (#1963).
+
+4.10.0 (released 2020-05-15)
+----------------------------
+
+- [varLib] Allow feature variations to be active across the entire space (#1957).
+- [ufoLib] Added support for ``formatVersionMinor`` in UFO's ``fontinfo.plist`` and for
+  ``formatMinor`` attribute in GLIF file as discussed in unified-font-object/ufo-spec#78.
+  No changes in reading or writing UFOs until an upcoming (non-0) minor update of the
+  UFO specification is published (#1786).
+- [merge] Fixed merging fonts with different versions of ``OS/2`` table (#1865, #1952).
+- [subset] Fixed ``AttributeError`` while subsetting ``ContextSubst`` and ``ContextPos``
+  Format 3 subtable (#1879, #1944).
+- [ttLib.table._m_e_t_a] if data happens to be ascii, emit comment in TTX (#1938).
+- [feaLib] Support multiple lookups per glyph position (#1905).
+- [psCharStrings] Use inheritance to avoid repeated code in initializer (#1932).
+- [Doc] Improved documentation for the following modules: ``afmLib`` (#1933), ``agl``
+  (#1934), ``cffLib`` (#1935), ``cu2qu`` (#1937), ``encodings`` (#1940), ``feaLib``
+  (#1941), ``merge`` (#1949).
+- [Doc] Split off developer-centric info to new page, making front page of docs more
+  user-focused. List all utilities and sub-modules with brief descriptions.
+  Make README more concise and focused (#1914).
+- [otlLib] Add function to build STAT table from high-level description (#1926).
+- [ttLib._n_a_m_e] Add ``findMultilingualName()`` method (#1921).
+- [unicodedata] Update ``RTL_SCRIPTS`` for Unicode 13.0 (#1925).
+- [gvar] Sort ``gvar`` XML output by glyph name, not glyph order (#1907, #1908).
+- [Doc] Added help options to ``fonttools`` command line tool (#1913, #1920).
+  Ensure all fonttools CLI tools have help documentation (#1948).
+- [ufoLib] Only write fontinfo.plist when there actually is content (#1911).
+
+4.9.0 (released 2020-04-29)
+---------------------------
+
+- [subset] Fixed subsetting of FeatureVariations table. The subsetter no longer drops
+  FeatureVariationRecords that have empty substitutions as that will keep the search
+  going and thus change the logic. It will only drop empty records that occur at the
+  end of the FeatureVariationRecords array (#1881).
+- [subset] Remove FeatureVariations table and downgrade GSUB/GPOS to version 0x10000
+  when FeatureVariations contain no FeatureVariationRecords after subsetting (#1903).
+- [agl] Add support for legacy Adobe Glyph List of glyph names in ``fontTools.agl``
+  (#1895).
+- [feaLib] Ignore superfluous script statements (#1883).
+- [feaLib] Hide traceback by default on ``fonttools feaLib`` command line.
+  Use ``--traceback`` option to show (#1898).
+- [feaLib] Check lookup index in chaining sub/pos lookups and print better error
+  message (#1896, #1897).
+- [feaLib] Fix building chained alt substitutions (#1902).
+- [Doc] Included all fontTools modules in the sphinx-generated documentation, and
+  published it to ReadTheDocs for continuous documentation of the fontTools project
+  (#1333). Check it out at https://fonttools.readthedocs.io/. Thanks to Chris Simpkins!
+- [transform] The ``Transform`` class is now subclass of ``typing.NamedTuple``. No
+  change in functionality (#1904).
+
+
+4.8.1 (released 2020-04-17)
+---------------------------
+
+- [feaLib] Fixed ``AttributeError: 'NoneType' has no attribute 'getAlternateGlyphs'``
+  when ``aalt`` feature references a chain contextual substitution lookup
+  (googlefonts/fontmake#648, #1878).
+
+4.8.0 (released 2020-04-16)
+---------------------------
+
+- [feaLib] If Parser is initialized without a ``glyphNames`` parameter, it cannot
+  distinguish between a glyph name containing an hyphen, or a range of glyph names;
+  instead of raising an error, it now interprets them as literal glyph names, while
+  also outputting a logging warning to alert user about the ambiguity (#1768, #1870).
+- [feaLib] When serializing AST to string, emit spaces around hyphens that denote
+  ranges. Also, fixed an issue with CID ranges when round-tripping AST->string->AST
+  (#1872).
+- [Snippets/otf2ttf] In otf2ttf.py script update LSB in hmtx to match xMin (#1873).
+- [colorLib] Added experimental support for building ``COLR`` v1 tables as per
+  the `colr-gradients-spec <https://github.com/googlefonts/colr-gradients-spec/blob/master/colr-gradients-spec.md>`__
+  draft proposal. **NOTE**: both the API and the XML dump of ``COLR`` v1 are
+  susceptible to change while the proposal is being discussed and formalized (#1822).
+
 4.7.0 (released 2020-04-03)
 ---------------------------
 
 - [cu2qu] Added ``fontTools.cu2qu`` package, imported from the original
   `cu2qu <https://github.com/googlefonts/cu2qu>`__ project. The ``cu2qu.pens`` module
   was moved to ``fontTools.pens.cu2quPen``. The optional cu2qu extension module
-  can be compiled by installing `Cython <https://cython.org/>` before installing
+  can be compiled by installing `Cython <https://cython.org/>`__ before installing
   fonttools from source (i.e. git repo or sdist tarball). The wheel package that
   is published on PyPI (i.e. the one ``pip`` downloads, unless ``--no-binary``
   option is used), will continue to be pure-Python for now (#1868).

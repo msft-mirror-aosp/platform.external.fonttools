@@ -43,6 +43,7 @@ def makeTTFont():
         damma hamza sukun kasratan lam_meem_jeem noon.final noon.initial
         by feature lookup sub table uni0327 uni0328 e.fina
     """.split()
+    glyphs.extend("cid{:05d}".format(cid) for cid in range(800, 1001 + 1))
     font = TTFont()
     font.setGlyphOrder(glyphs)
     return font
@@ -51,7 +52,7 @@ def makeTTFont():
 class BuilderTest(unittest.TestCase):
     # Feature files in data/*.fea; output gets compared to data/*.ttx.
     TEST_FEATURE_FILES = """
-        Attach enum markClass language_required
+        Attach cid_range enum markClass language_required
         GlyphClassDef LigatureCaretByIndex LigatureCaretByPos
         lookup lookupflag feature_aalt ignore_pos
         GPOS_1 GPOS_1_zero GPOS_2 GPOS_2b GPOS_3 GPOS_4 GPOS_5 GPOS_6 GPOS_8
@@ -70,6 +71,8 @@ class BuilderTest(unittest.TestCase):
         ZeroValue_ChainSinglePos_horizontal ZeroValue_ChainSinglePos_vertical
         PairPosSubtable ChainSubstSubtable ChainPosSubtable LigatureSubtable
         AlternateSubtable MultipleSubstSubtable SingleSubstSubtable
+        aalt_chain_contextual_subst AlternateChained MultipleLookupsPerGlyph
+        MultipleLookupsPerGlyph2
     """.split()
 
     def __init__(self, methodName):
@@ -335,6 +338,12 @@ class BuilderTest(unittest.TestCase):
             "Script statements are not allowed within \"feature size\"",
             self.build, "feature size { script latn; } size;")
 
+    def test_script_in_standalone_lookup(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "Script statements are not allowed within standalone lookup blocks",
+            self.build, "lookup test { script latn; } test;")
+
     def test_language(self):
         builder = Builder(makeTTFont(), (None, None))
         builder.add_language_system(None, 'latn', 'FRA ')
@@ -361,6 +370,12 @@ class BuilderTest(unittest.TestCase):
             FeatureLibError,
             "Language statements are not allowed within \"feature size\"",
             self.build, "feature size { language FRA; } size;")
+
+    def test_language_in_standalone_lookup(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "Language statements are not allowed within standalone lookup blocks",
+            self.build, "lookup test { language FRA; } test;")
 
     def test_language_required_duplicate(self):
         self.assertRaisesRegex(
@@ -415,6 +430,28 @@ class BuilderTest(unittest.TestCase):
             FeatureLibError,
             "Lookup blocks cannot be placed inside 'aalt' features",
             self.build, "feature aalt {lookup L {} L;} aalt;")
+
+    def test_chain_subst_refrences_GPOS_looup(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "Missing index of the specified lookup, might be a positioning lookup",
+            self.build,
+            "lookup dummy { pos a 50; } dummy;"
+            "feature test {"
+            "    sub a' lookup dummy b;"
+            "} test;"
+        )
+
+    def test_chain_pos_refrences_GSUB_looup(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "Missing index of the specified lookup, might be a substitution lookup",
+            self.build,
+            "lookup dummy { sub a by A; } dummy;"
+            "feature test {"
+            "    pos a' lookup dummy b;"
+            "} test;"
+        )
 
     def test_extensions(self):
         class ast_BaseClass(ast.MarkClass):

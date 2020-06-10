@@ -56,7 +56,7 @@ class SubsetTest(unittest.TestCase):
                     lines.append(line.rstrip() + os.linesep)
         return lines
 
-    def expect_ttx(self, font, expected_ttx, tables):
+    def expect_ttx(self, font, expected_ttx, tables=None):
         path = self.temp_path(suffix=".ttx")
         font.saveXML(path, tables=tables)
         actual = self.read_ttx(path)
@@ -732,8 +732,20 @@ class SubsetTest(unittest.TestCase):
 
         self.assertEqual(ttf.flavor, None)
 
+    def test_subset_context_subst_format_3(self):
+        # https://github.com/fonttools/fonttools/issues/1879
+        # Test font contains 'calt' feature with Format 3 ContextSubst lookup subtables
+        ttx = self.getpath("TestContextSubstFormat3.ttx")
+        font, fontpath = self.compile_font(ttx, ".ttf")
+        subsetpath = self.temp_path(".ttf")
+        subset.main([fontpath, "--unicodes=*", "--output-file=%s" % subsetpath])
+        subsetfont = TTFont(subsetpath)
+        # check all glyphs are kept via GSUB closure, no changes expected
+        self.expect_ttx(subsetfont, ttx)
 
-def test_subset_feature_variations():
+
+@pytest.fixture
+def featureVarsTestFont():
     fb = FontBuilder(unitsPerEm=100)
     fb.setupGlyphOrder([".notdef", "f", "f_f", "dollar", "dollar.rvrn"])
     fb.setupCharacterMap({ord("f"): "f", ord("$"): "dollar"})
@@ -753,7 +765,11 @@ def test_subset_feature_variations():
     fb.save(buf)
     buf.seek(0)
 
-    font = TTFont(buf)
+    return TTFont(buf)
+
+
+def test_subset_feature_variations_keep_all(featureVarsTestFont):
+    font = featureVarsTestFont
 
     options = subset.Options()
     subsetter = subset.Subsetter(options)
@@ -769,6 +785,31 @@ def test_subset_feature_variations():
     # 'rvrn' is required so it is kept by default
     assert "rvrn" in featureTags
     assert "dollar.rvrn" in font.getGlyphOrder()
+
+
+def test_subset_feature_variations_drop_all(featureVarsTestFont):
+    font = featureVarsTestFont
+
+    options = subset.Options()
+    options.layout_features.remove("rvrn")  # drop 'rvrn'
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("f"), ord("$")])
+    subsetter.subset(font)
+
+    featureTags = {
+        r.FeatureTag for r in font["GSUB"].table.FeatureList.FeatureRecord
+    }
+    glyphs = set(font.getGlyphOrder())
+
+    assert "rvrn" not in featureTags
+    assert glyphs == {".notdef", "f", "dollar"}
+    # all FeatureVariationRecords were dropped
+    assert font["GSUB"].table.FeatureVariations is None
+    assert font["GSUB"].table.Version == 0x00010000
+
+
+# TODO test_subset_feature_variations_drop_from_end_empty_records
+# https://github.com/fonttools/fonttools/issues/1881#issuecomment-619415044
 
 
 def test_subset_single_pos_format():

@@ -894,6 +894,8 @@ def __subset_classify_context(self):
 				self.ClassDef = 'InputClassDef' if Chain else 'ClassDef'
 				self.ClassDefIndex = 1 if Chain else 0
 				self.Input = 'Input' if Chain else 'Class'
+			elif Format == 3:
+				self.Input = 'InputCoverage' if Chain else 'Coverage'
 
 	if self.Format not in [1, 2, 3]:
 		return None	# Don't shoot the messenger; let it go
@@ -976,6 +978,7 @@ def closure_glyphs(self, s, cur_glyphs):
 		if not all(x.intersect(s.glyphs) for x in c.RuleData(self)):
 			return []
 		r = self
+		input_coverages = getattr(r, c.Input)
 		chaos = set()
 		for ll in getattr(r, c.LookupRecord):
 			if not ll: continue
@@ -987,11 +990,11 @@ def closure_glyphs(self, s, cur_glyphs):
 				if seqi == 0:
 					pos_glyphs = frozenset(cur_glyphs)
 				else:
-					pos_glyphs = frozenset(r.InputCoverage[seqi].intersect_glyphs(s.glyphs))
+					pos_glyphs = frozenset(input_coverages[seqi].intersect_glyphs(s.glyphs))
 			lookup = s.table.LookupList.Lookup[ll.LookupListIndex]
 			chaos.add(seqi)
 			if lookup.may_have_non_1to1():
-				chaos.update(range(seqi, len(r.InputCoverage)+1))
+				chaos.update(range(seqi, len(input_coverages)+1))
 			lookup.closure_glyphs(s, cur_glyphs=pos_glyphs)
 	else:
 		assert 0, "unknown format: %s" % self.Format
@@ -1321,8 +1324,14 @@ def subset_features(self, feature_indices):
 @_add_method(otTables.FeatureVariations)
 def subset_features(self, feature_indices):
 	self.ensureDecompiled()
-	self.FeaturVariationRecord = [r for r in self.FeatureVariationRecord
-					if r.FeatureTableSubstitution.subset_features(feature_indices)]
+	for r in self.FeatureVariationRecord:
+		r.FeatureTableSubstitution.subset_features(feature_indices)
+	# Prune empty records at the end only
+	# https://github.com/fonttools/fonttools/issues/1881
+	while (self.FeatureVariationRecord and
+		not self.FeatureVariationRecord[-1]
+			.FeatureTableSubstitution.SubstitutionCount):
+		self.FeatureVariationRecord.pop()
 	self.FeatureVariationCount = len(self.FeatureVariationRecord)
 	return bool(self.FeatureVariationCount)
 
@@ -1625,11 +1634,11 @@ def prune_post_subset(self, font, options):
 	#if table.ScriptList and not table.ScriptList.ScriptRecord:
 	#	table.ScriptList = None
 
-	if not table.FeatureList and hasattr(table, 'FeatureVariations'):
-		table.FeatureVariations = None
+	if hasattr(table, 'FeatureVariations'):
+		if not (table.FeatureList and table.FeatureVariations.FeatureVariationRecord):
+			table.FeatureVariations = None
 
-	if hasattr(table, 'FeatureVariations') and not table.FeatureVariations:
-		if table.Version == 0x00010001:
+		if not table.FeatureVariations and table.Version == 0x00010001:
 			table.Version = 0x00010000
 
 	return True
@@ -2772,6 +2781,7 @@ def usage():
 
 @timer("make one with everything (TOTAL TIME)")
 def main(args=None):
+	"""OpenType font subsetter and optimizer"""
 	from os.path import splitext
 	from fontTools import configLogger
 
