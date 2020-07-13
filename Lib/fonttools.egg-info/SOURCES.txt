@@ -61,6 +61,7 @@ Doc/source/misc/intTools.rst
 Doc/source/misc/loggingTools.rst
 Doc/source/misc/macCreatorType.rst
 Doc/source/misc/macRes.rst
+Doc/source/misc/plistlib.rst
 Doc/source/misc/psCharStrings.rst
 Doc/source/misc/psLib.rst
 Doc/source/misc/psOperators.rst
@@ -73,7 +74,6 @@ Doc/source/misc/timeTools.rst
 Doc/source/misc/transform.rst
 Doc/source/misc/xmlReader.rst
 Doc/source/misc/xmlWriter.rst
-Doc/source/otlLib/builder.rst
 Doc/source/otlLib/index.rst
 Doc/source/pens/areaPen.rst
 Doc/source/pens/basePen.rst
@@ -181,6 +181,7 @@ Lib/fontTools/feaLib/ast.py
 Lib/fontTools/feaLib/builder.py
 Lib/fontTools/feaLib/error.py
 Lib/fontTools/feaLib/lexer.py
+Lib/fontTools/feaLib/location.py
 Lib/fontTools/feaLib/parser.py
 Lib/fontTools/misc/__init__.py
 Lib/fontTools/misc/arrayTools.py
@@ -215,6 +216,7 @@ Lib/fontTools/mtiLib/__init__.py
 Lib/fontTools/mtiLib/__main__.py
 Lib/fontTools/otlLib/__init__.py
 Lib/fontTools/otlLib/builder.py
+Lib/fontTools/otlLib/error.py
 Lib/fontTools/otlLib/maxContextCalc.py
 Lib/fontTools/pens/__init__.py
 Lib/fontTools/pens/areaPen.py
@@ -853,6 +855,7 @@ Tests/mtiLib/data/mti/scripttable.txt
 Tests/otlLib/__init__.py
 Tests/otlLib/builder_test.py
 Tests/otlLib/maxContextCalc_test.py
+Tests/otlLib/mock_builder_test.py
 Tests/otlLib/data/gpos_91.ttx
 Tests/otlLib/data/gsub_51.ttx
 Tests/otlLib/data/gsub_52.ttx
