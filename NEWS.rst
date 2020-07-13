@@ -1,3 +1,35 @@
+4.13.0 (released 2020-07-10)
+----------------------------
+
+- [feaLib/otlLib] Moved lookup subtable builders from feaLib to otlLib; refactored
+  some common code (#2004, #2007).
+- [docs] Document otlLib module (#2009).
+- [glifLib] Fixed bug with some UFO .glif filenames clashing on case-insensitive
+  filesystems (#2001, #2002).
+- [colorLib] Updated COLRv1 implementation following changes in the draft spec:
+  (#2008, googlefonts/colr-gradients-spec#24).
+
+4.12.1 (released 2020-06-16)
+----------------------------
+
+- [_n_a_m_e] Fixed error in ``addMultilingualName`` with one-character names.
+  Only attempt to recovered malformed UTF-16 data from a ``bytes`` string,
+  not from unicode ``str`` (#1997, #1998).
+
+4.12.0 (released 2020-06-09)
+----------------------------
+
+- [otlLib/varLib] Ensure that the ``AxisNameID`` in the ``STAT`` and ``fvar``
+  tables is grater than 255 as per OpenType spec (#1985, #1986).
+- [docs] Document more modules in ``fontTools.misc`` package: ``filenames``,
+  ``fixedTools``, ``intTools``, ``loggingTools``, ``macCreatorType``, ``macRes``,
+  ``plistlib`` (#1981).
+- [OS/2] Don't calculate whole sets of unicode codepoints, use faster and more memory
+  efficient ranges and bisect lookups (#1984).
+- [voltLib] Support writing back abstract syntax tree as VOLT data (#1983).
+- [voltLib] Accept DO_NOT_TOUCH_CMAP keyword (#1987).
+- [subset/merge] Fixed a namespace clash involving a private helper class (#1955).
+
 4.11.0 (released 2020-05-28)
 ----------------------------
 
