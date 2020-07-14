@@ -495,14 +495,6 @@ class BuilderTest(object):
             ),
         ) as excinfo:
             builder.buildLookup([s], builder.LOOKUP_FLAG_USE_MARK_FILTERING_SET, None)
-        with pytest.raises(
-            AssertionError,
-            match=(
-                "if markFilterSet is not None, flags must set "
-                "LOOKUP_FLAG_USE_MARK_FILTERING_SET; flags=0x0004"
-            ),
-        ) as excinfo:
-            builder.buildLookup([s], builder.LOOKUP_FLAG_IGNORE_LIGATURES, 777)
 
     def test_buildLookup_conflictingSubtableTypes(self):
         s1 = builder.buildSingleSubstSubtable({"one": "two"})
@@ -1371,6 +1363,11 @@ def test_buildStatTable(axes, axisValues, elidedFallbackName, expected_ttx):
     font = ttLib.TTFont()
     font["name"] = ttLib.newTable("name")
     font["name"].names = []
+    # https://github.com/fonttools/fonttools/issues/1985
+    # Add nameID < 256 that matches a test axis name, to test whether
+    # the nameID is not reused: AxisNameIDs must be > 255 according
+    # to the spec.
+    font["name"].addMultilingualName(dict(en="ABCDTest"), nameID=6)
     builder.buildStatTable(font, axes, axisValues, elidedFallbackName)
     f = io.StringIO()
     font.saveXML(f, tables=["STAT"])
