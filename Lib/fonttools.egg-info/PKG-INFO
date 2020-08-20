@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.13.0
+Version: 4.14.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -21,8 +21,9 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
           licence <LICENSE>`__.
         | Among other things this means you can use it free of charge.
         
-        `User documentation <https://fonttools.readthedocs.io/en/latest/>` and
-        `developer documentation <https://fonttools.readthedocs.io/en/latest/developer.html>` are available at `Read the Docs <https://fonttools.readthedocs.io/>`.
+        `User documentation <https://fonttools.readthedocs.io/en/latest/>`_ and
+        `developer documentation <https://fonttools.readthedocs.io/en/latest/developer.html>`_
+        are available at `Read the Docs <https://fonttools.readthedocs.io/>`_.
         
         Installation
         ~~~~~~~~~~~~
@@ -252,6 +253,20 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.14.0 (released 2020-08-19)
+        ----------------------------
+        
+        - [feaLib] Allow anonymous classes in LookupFlags definitions (#2037).
+        - [Docs] Better document DesignSpace rules processing order (#2041).
+        - [ttLib] Fixed 21-year old bug in ``maxp.maxComponentDepth`` calculation (#2044,
+          #2045).
+        - [varLib.models] Fixed misspelled argument name in CLI entry point (81d0042a).
+        - [subset] When subsetting GSUB v1.1, fixed TypeError by checking whether the
+          optional FeatureVariations table is present (e63ecc5b).
+        - [Snippets] Added snippet to show how to decompose glyphs in a TTF (#2030).
+        - [otlLib] Generate GSUB type 5 and GPOS type 7 contextual lookups where appropriate
+          (#2016).
         
         4.13.0 (released 2020-07-10)
         ----------------------------
@@ -2006,13 +2021,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
-Provides-Extra: type1
-Provides-Extra: lxml
-Provides-Extra: graphite
-Provides-Extra: symfont
+Provides-Extra: ufo
+Provides-Extra: unicode
 Provides-Extra: interpolatable
 Provides-Extra: plot
-Provides-Extra: unicode
+Provides-Extra: symfont
 Provides-Extra: all
+Provides-Extra: lxml
 Provides-Extra: woff
-Provides-Extra: ufo
+Provides-Extra: type1
+Provides-Extra: graphite
