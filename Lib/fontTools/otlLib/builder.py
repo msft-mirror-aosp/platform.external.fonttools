@@ -88,9 +88,10 @@ def buildLookup(subtables, flags=0, markFilterSet=None):
     subtables = [st for st in subtables if st is not None]
     if not subtables:
         return None
-    assert all(t.LookupType == subtables[0].LookupType for t in subtables), \
-        ("all subtables must have the same LookupType; got %s" %
-         repr([t.LookupType for t in subtables]))
+    assert all(t.LookupType == subtables[0].LookupType for t in subtables), (
+        "all subtables must have the same LookupType; got %s"
+        % repr([t.LookupType for t in subtables])
+    )
     self = ot.Lookup()
     self.LookupType = subtables[0].LookupType
     self.LookupFlag = flags
@@ -101,9 +102,10 @@ def buildLookup(subtables, flags=0, markFilterSet=None):
         assert isinstance(markFilterSet, int), markFilterSet
         self.MarkFilteringSet = markFilterSet
     else:
-        assert (self.LookupFlag & LOOKUP_FLAG_USE_MARK_FILTERING_SET) == 0, \
-            ("if markFilterSet is None, flags must not set "
-             "LOOKUP_FLAG_USE_MARK_FILTERING_SET; flags=0x%04x" % flags)
+        assert (self.LookupFlag & LOOKUP_FLAG_USE_MARK_FILTERING_SET) == 0, (
+            "if markFilterSet is None, flags must not set "
+            "LOOKUP_FLAG_USE_MARK_FILTERING_SET; flags=0x%04x" % flags
+        )
     return self
 
 
@@ -118,13 +120,15 @@ class LookupBuilder(object):
         self.lookupflag = 0
         self.markFilterSet = None
         self.lookup_index = None  # assigned when making final tables
-        assert table in ('GPOS', 'GSUB')
+        assert table in ("GPOS", "GSUB")
 
     def equals(self, other):
-        return (isinstance(other, self.__class__) and
-                self.table == other.table and
-                self.lookupflag == other.lookupflag and
-                self.markFilterSet == other.markFilterSet)
+        return (
+            isinstance(other, self.__class__)
+            and self.table == other.table
+            and self.lookupflag == other.lookupflag
+            and self.markFilterSet == other.markFilterSet
+        )
 
     def inferGlyphClasses(self):
         """Infers glyph glasses for the GDEF table, such as {"cedilla":3}."""
@@ -172,6 +176,13 @@ class LookupBuilder(object):
             coverage = buildCoverage(g, self.glyphMap)
             subtable.InputCoverage.append(coverage)
 
+    def setCoverage_(self, glyphs, subtable):
+        subtable.GlyphCount = len(glyphs)
+        subtable.Coverage = []
+        for g in glyphs:
+            coverage = buildCoverage(g, self.glyphMap)
+            subtable.Coverage.append(coverage)
+
     def build_subst_subtables(self, mapping, klass):
         substitutions = [{}]
         for key in mapping:
@@ -190,10 +201,11 @@ class LookupBuilder(object):
                 original source which produced this break, or ``None`` if
                 no location is provided.
         """
-        log.warning(OpenTypeLibError(
-            'unsupported "subtable" statement for lookup type',
-            location
-        ))
+        log.warning(
+            OpenTypeLibError(
+                'unsupported "subtable" statement for lookup type', location
+            )
+        )
 
 
 class AlternateSubstBuilder(LookupBuilder):
@@ -218,13 +230,13 @@ class AlternateSubstBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GSUB', 3)
+        LookupBuilder.__init__(self, font, location, "GSUB", 3)
         self.alternates = OrderedDict()
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.alternates == other.alternates)
+        return LookupBuilder.equals(self, other) and self.alternates == other.alternates
 
     def build(self):
         """Build the lookup.
@@ -233,8 +245,9 @@ class AlternateSubstBuilder(LookupBuilder):
             An ``otTables.Lookup`` object representing the alternate
             substitution lookup.
         """
-        subtables = self.build_subst_subtables(self.alternates,
-                buildAlternateSubstSubtable)
+        subtables = self.build_subst_subtables(
+            self.alternates, buildAlternateSubstSubtable
+        )
         return self.buildLookup_(subtables)
 
     def getAlternateGlyphs(self):
@@ -244,10 +257,78 @@ class AlternateSubstBuilder(LookupBuilder):
         self.alternates[(self.SUBTABLE_BREAK_, location)] = self.SUBTABLE_BREAK_
 
 
+class ChainContextualRule(
+    namedtuple("ChainContextualRule", ["prefix", "glyphs", "suffix", "lookups"])
+):
+    @property
+    def is_subtable_break(self):
+        return self.prefix == LookupBuilder.SUBTABLE_BREAK_
+
+
+class ChainContextualRuleset:
+    def __init__(self):
+        self.rules = []
+
+    def addRule(self, rule):
+        self.rules.append(rule)
+
+    @property
+    def hasPrefixOrSuffix(self):
+        # Do we have any prefixes/suffixes? If this is False for all
+        # rulesets, we can express the whole lookup as GPOS5/GSUB7.
+        for rule in self.rules:
+            if len(rule.prefix) > 0 or len(rule.suffix) > 0:
+                return True
+        return False
+
+    @property
+    def hasAnyGlyphClasses(self):
+        # Do we use glyph classes anywhere in the rules? If this is False
+        # we can express this subtable as a Format 1.
+        for rule in self.rules:
+            for coverage in (rule.prefix, rule.glyphs, rule.suffix):
+                if any(len(x) > 1 for x in coverage):
+                    return True
+        return False
+
+    def format2ClassDefs(self):
+        PREFIX, GLYPHS, SUFFIX = 0, 1, 2
+        classDefBuilders = []
+        for ix in [PREFIX, GLYPHS, SUFFIX]:
+            context = []
+            for r in self.rules:
+                context.append(r[ix])
+            classes = self._classBuilderForContext(context)
+            if not classes:
+                return None
+            classDefBuilders.append(classes)
+        return classDefBuilders
+
+    def _classBuilderForContext(self, context):
+        classdefbuilder = ClassDefBuilder(useClass0=False)
+        for position in context:
+            for glyphset in position:
+                if not classdefbuilder.canAdd(glyphset):
+                    return None
+                classdefbuilder.add(glyphset)
+        return classdefbuilder
+
+
 class ChainContextualBuilder(LookupBuilder):
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.rules == other.rules)
+        return LookupBuilder.equals(self, other) and self.rules == other.rules
+
+    def rulesets(self):
+        # Return a list of ChainContextRuleset objects, taking explicit
+        # subtable breaks into account
+        ruleset = [ChainContextualRuleset()]
+        for rule in self.rules:
+            if rule.is_subtable_break:
+                ruleset.append(ChainContextualRuleset())
+                continue
+            ruleset[-1].addRule(rule)
+        # Squish any empty subtables
+        return [x for x in ruleset if len(x.rules) > 0]
 
     def build(self):
         """Build the lookup.
@@ -257,39 +338,99 @@ class ChainContextualBuilder(LookupBuilder):
             contextual positioning lookup.
         """
         subtables = []
-        for (prefix, glyphs, suffix, lookups) in self.rules:
-            if prefix == self.SUBTABLE_BREAK_:
-                continue
-            st = self.newSubtable_()
-            subtables.append(st)
-            st.Format = 3
-            self.setBacktrackCoverage_(prefix, st)
-            self.setLookAheadCoverage_(suffix, st)
-            self.setInputCoverage_(glyphs, st)
-
-            for sequenceIndex, lookupList in enumerate(lookups):
-                if lookupList is not None:
-                    if not isinstance(lookupList, list):
-                        # Can happen with synthesised lookups
-                        lookupList = [ lookupList ]
-                    for l in lookupList:
-                        if l.lookup_index is None:
-                            if isinstance(self, ChainContextPosBuilder):
-                                other = "substitution"
-                            else:
-                                other = "positioning"
-                            raise OpenTypeLibError('Missing index of the specified '
-                                f'lookup, might be a {other} lookup',
-                                self.location)
-                        rec = self.newLookupRecord_()
-                        rec.SequenceIndex = sequenceIndex
-                        rec.LookupListIndex = l.lookup_index
-                        self.addLookupRecordToSubtable_(st, rec)
+        chaining = False
+        rulesets = self.rulesets()
+        chaining = any(ruleset.hasPrefixOrSuffix for ruleset in rulesets)
+        for ruleset in rulesets:
+            for rule in ruleset.rules:
+                subtables.append(self.buildFormat3Subtable(rule, chaining))
+        # If we are not chaining, lookup type will be automatically fixed by
+        # buildLookup_
         return self.buildLookup_(subtables)
 
+    def buildFormat3Subtable(self, rule, chaining=True):
+        st = self.newSubtable_(chaining=chaining)
+        st.Format = 3
+        if chaining:
+            self.setBacktrackCoverage_(rule.prefix, st)
+            self.setLookAheadCoverage_(rule.suffix, st)
+            self.setInputCoverage_(rule.glyphs, st)
+        else:
+            self.setCoverage_(rule.glyphs, st)
+
+        for sequenceIndex, lookupList in enumerate(rule.lookups):
+            if lookupList is not None:
+                if not isinstance(lookupList, list):
+                    # Can happen with synthesised lookups
+                    lookupList = [lookupList]
+                for l in lookupList:
+                    if l.lookup_index is None:
+                        if isinstance(self, ChainContextPosBuilder):
+                            other = "substitution"
+                        else:
+                            other = "positioning"
+                        raise OpenTypeLibError(
+                            "Missing index of the specified "
+                            f"lookup, might be a {other} lookup",
+                            self.location,
+                        )
+                    rec = self.newLookupRecord_(st)
+                    rec.SequenceIndex = sequenceIndex
+                    rec.LookupListIndex = l.lookup_index
+        return st
+
     def add_subtable_break(self, location):
-        self.rules.append((self.SUBTABLE_BREAK_, self.SUBTABLE_BREAK_,
-                           self.SUBTABLE_BREAK_, [self.SUBTABLE_BREAK_]))
+        self.rules.append(
+            ChainContextualRule(
+                self.SUBTABLE_BREAK_,
+                self.SUBTABLE_BREAK_,
+                self.SUBTABLE_BREAK_,
+                [self.SUBTABLE_BREAK_],
+            )
+        )
+
+    def newSubtable_(self, chaining=True):
+        subtablename = f"Context{self.subtable_type}"
+        if chaining:
+            subtablename = "Chain" + subtablename
+        st = getattr(ot, subtablename)()  # ot.ChainContextPos()/ot.ChainSubst()/etc.
+        setattr(st, f"{self.subtable_type}Count", 0)
+        setattr(st, f"{self.subtable_type}LookupRecord", [])
+        return st
+
+    def attachSubtableWithCount_(
+        self, st, subtable_name, count_name, existing=None, index=None, chaining=False
+    ):
+        if chaining:
+            subtable_name = "Chain" + subtable_name
+            count_name = "Chain" + count_name
+
+        if not hasattr(st, count_name):
+            setattr(st, count_name, 0)
+            setattr(st, subtable_name, [])
+
+        if existing:
+            new_subtable = existing
+        else:
+            # Create a new, empty subtable from otTables
+            new_subtable = getattr(ot, subtable_name)()
+
+        setattr(st, count_name, getattr(st, count_name) + 1)
+
+        if index:
+            getattr(st, subtable_name).insert(index, new_subtable)
+        else:
+            getattr(st, subtable_name).append(new_subtable)
+
+        return new_subtable
+
+    def newLookupRecord_(self, st):
+        return self.attachSubtableWithCount_(
+            st,
+            f"{self.subtable_type}LookupRecord",
+            f"{self.subtable_type}Count",
+            chaining=False,
+        )  # Oddly, it isn't ChainSubstLookupRecord
 
 
 class ChainContextPosBuilder(ChainContextualBuilder):
@@ -318,22 +459,11 @@ class ChainContextPosBuilder(ChainContextualBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 8)
-        self.rules = []  # (prefix, input, suffix, lookups)
-
-    def newSubtable_(self):
-        st = ot.ChainContextPos()
-        st.PosCount = 0
-        st.PosLookupRecord = []
-        return st
-
-    def newLookupRecord_(self):
-        return ot.PosLookupRecord()
-
-    def addLookupRecordToSubtable_(self, st, rec):
-        st.PosCount += 1
-        st.PosLookupRecord.append(rec)
+        LookupBuilder.__init__(self, font, location, "GPOS", 8)
+        self.rules = []
+        self.subtable_type = "Pos"
 
     def find_chainable_single_pos(self, lookups, glyphs, value):
         """Helper for add_single_pos_chained_()"""
@@ -341,8 +471,9 @@ class ChainContextPosBuilder(ChainContextualBuilder):
         for lookup in lookups[::-1]:
             if lookup == self.SUBTABLE_BREAK_:
                 return res
-            if isinstance(lookup, SinglePosBuilder) and \
-                    all(lookup.can_add(glyph, value) for glyph in glyphs):
+            if isinstance(lookup, SinglePosBuilder) and all(
+                lookup.can_add(glyph, value) for glyph in glyphs
+            ):
                 res = lookup
         return res
 
@@ -373,29 +504,18 @@ class ChainContextSubstBuilder(ChainContextualBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GSUB', 6)
+        LookupBuilder.__init__(self, font, location, "GSUB", 6)
         self.rules = []  # (prefix, input, suffix, lookups)
-
-    def newSubtable_(self):
-        st = ot.ChainContextSubst()
-        st.SubstCount = 0
-        st.SubstLookupRecord = []
-        return st
-
-    def newLookupRecord_(self):
-        return ot.SubstLookupRecord()
-
-    def addLookupRecordToSubtable_(self, st, rec):
-        st.SubstCount += 1
-        st.SubstLookupRecord.append(rec)
+        self.subtable_type = "Subst"
 
     def getAlternateGlyphs(self):
         result = {}
-        for (prefix, _, _, lookuplist) in self.rules:
-            if prefix == self.SUBTABLE_BREAK_:
+        for rule in self.rules:
+            if rule.is_subtable_break:
                 continue
-            for lookups in lookuplist:
+            for lookups in rule.lookups:
                 if not isinstance(lookups, list):
                     lookups = [lookups]
                 for lookup in lookups:
@@ -408,12 +528,13 @@ class ChainContextSubstBuilder(ChainContextualBuilder):
     def find_chainable_single_subst(self, glyphs):
         """Helper for add_single_subst_chained_()"""
         res = None
-        for prefix, _, _, rules in self.rules[::-1]:
-            if prefix == self.SUBTABLE_BREAK_:
+        for rule in self.rules[::-1]:
+            if rule.is_subtable_break:
                 return res
-            for sub in rules:
-                if (isinstance(sub, SingleSubstBuilder) and
-                        not any(g in glyphs for g in sub.mapping.keys())):
+            for sub in rule.lookups:
+                if isinstance(sub, SingleSubstBuilder) and not any(
+                    g in glyphs for g in sub.mapping.keys()
+                ):
                     res = sub
         return res
 
@@ -440,13 +561,13 @@ class LigatureSubstBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GSUB', 4)
+        LookupBuilder.__init__(self, font, location, "GSUB", 4)
         self.ligatures = OrderedDict()  # {('f','f','i'): 'f_f_i'}
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.ligatures == other.ligatures)
+        return LookupBuilder.equals(self, other) and self.ligatures == other.ligatures
 
     def build(self):
         """Build the lookup.
@@ -455,8 +576,9 @@ class LigatureSubstBuilder(LookupBuilder):
             An ``otTables.Lookup`` object representing the ligature
             substitution lookup.
         """
-        subtables = self.build_subst_subtables(self.ligatures,
-                buildLigatureSubstSubtable)
+        subtables = self.build_subst_subtables(
+            self.ligatures, buildLigatureSubstSubtable
+        )
         return self.buildLookup_(subtables)
 
     def add_subtable_break(self, location):
@@ -485,17 +607,16 @@ class MultipleSubstBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GSUB', 2)
+        LookupBuilder.__init__(self, font, location, "GSUB", 2)
         self.mapping = OrderedDict()
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.mapping == other.mapping)
+        return LookupBuilder.equals(self, other) and self.mapping == other.mapping
 
     def build(self):
-        subtables = self.build_subst_subtables(self.mapping,
-                buildMultipleSubstSubtable)
+        subtables = self.build_subst_subtables(self.mapping, buildMultipleSubstSubtable)
         return self.buildLookup_(subtables)
 
     def add_subtable_break(self, location):
@@ -518,13 +639,15 @@ class CursivePosBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 3)
+        LookupBuilder.__init__(self, font, location, "GPOS", 3)
         self.attachments = {}
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.attachments == other.attachments)
+        return (
+            LookupBuilder.equals(self, other) and self.attachments == other.attachments
+        )
 
     def add_attachment(self, location, glyphs, entryAnchor, exitAnchor):
         """Adds attachment information to the cursive positioning lookup.
@@ -580,15 +703,18 @@ class MarkBasePosBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 4)
+        LookupBuilder.__init__(self, font, location, "GPOS", 4)
         self.marks = {}  # glyphName -> (markClassName, anchor)
         self.bases = {}  # glyphName -> {markClassName: anchor}
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.marks == other.marks and
-                self.bases == other.bases)
+        return (
+            LookupBuilder.equals(self, other)
+            and self.marks == other.marks
+            and self.bases == other.bases
+        )
 
     def inferGlyphClasses(self):
         result = {glyph: 1 for glyph in self.bases}
@@ -603,12 +729,12 @@ class MarkBasePosBuilder(LookupBuilder):
             positioning lookup.
         """
         markClasses = self.buildMarkClasses_(self.marks)
-        marks = {mark: (markClasses[mc], anchor)
-                 for mark, (mc, anchor) in self.marks.items()}
+        marks = {
+            mark: (markClasses[mc], anchor) for mark, (mc, anchor) in self.marks.items()
+        }
         bases = {}
         for glyph, anchors in self.bases.items():
-            bases[glyph] = {markClasses[mc]: anchor
-                            for (mc, anchor) in anchors.items()}
+            bases[glyph] = {markClasses[mc]: anchor for (mc, anchor) in anchors.items()}
         subtables = buildMarkBasePos(marks, bases, self.glyphMap)
         return self.buildLookup_(subtables)
 
@@ -643,15 +769,18 @@ class MarkLigPosBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 5)
+        LookupBuilder.__init__(self, font, location, "GPOS", 5)
         self.marks = {}  # glyphName -> (markClassName, anchor)
         self.ligatures = {}  # glyphName -> [{markClassName: anchor}, ...]
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.marks == other.marks and
-                self.ligatures == other.ligatures)
+        return (
+            LookupBuilder.equals(self, other)
+            and self.marks == other.marks
+            and self.ligatures == other.ligatures
+        )
 
     def inferGlyphClasses(self):
         result = {glyph: 2 for glyph in self.ligatures}
@@ -666,8 +795,9 @@ class MarkLigPosBuilder(LookupBuilder):
             positioning lookup.
         """
         markClasses = self.buildMarkClasses_(self.marks)
-        marks = {mark: (markClasses[mc], anchor)
-                 for mark, (mc, anchor) in self.marks.items()}
+        marks = {
+            mark: (markClasses[mc], anchor) for mark, (mc, anchor) in self.marks.items()
+        }
         ligs = {}
         for lig, components in self.ligatures.items():
             ligs[lig] = []
@@ -703,15 +833,18 @@ class MarkMarkPosBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 6)
-        self.marks = {}      # glyphName -> (markClassName, anchor)
+        LookupBuilder.__init__(self, font, location, "GPOS", 6)
+        self.marks = {}  # glyphName -> (markClassName, anchor)
         self.baseMarks = {}  # glyphName -> {markClassName: anchor}
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.marks == other.marks and
-                self.baseMarks == other.baseMarks)
+        return (
+            LookupBuilder.equals(self, other)
+            and self.marks == other.marks
+            and self.baseMarks == other.baseMarks
+        )
 
     def inferGlyphClasses(self):
         result = {glyph: 3 for glyph in self.baseMarks}
@@ -727,8 +860,9 @@ class MarkMarkPosBuilder(LookupBuilder):
         """
         markClasses = self.buildMarkClasses_(self.marks)
         markClassList = sorted(markClasses.keys(), key=markClasses.get)
-        marks = {mark: (markClasses[mc], anchor)
-                 for mark, (mc, anchor) in self.marks.items()}
+        marks = {
+            mark: (markClasses[mc], anchor) for mark, (mc, anchor) in self.marks.items()
+        }
 
         st = ot.MarkMarkPos()
         st.Format = 1
@@ -770,13 +904,13 @@ class ReverseChainSingleSubstBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GSUB', 8)
+        LookupBuilder.__init__(self, font, location, "GSUB", 8)
         self.rules = []  # (prefix, suffix, mapping)
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.rules == other.rules)
+        return LookupBuilder.equals(self, other) and self.rules == other.rules
 
     def build(self):
         """Build the lookup.
@@ -823,13 +957,13 @@ class SingleSubstBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GSUB', 1)
+        LookupBuilder.__init__(self, font, location, "GSUB", 1)
         self.mapping = OrderedDict()
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.mapping == other.mapping)
+        return LookupBuilder.equals(self, other) and self.mapping == other.mapping
 
     def build(self):
         """Build the lookup.
@@ -838,8 +972,7 @@ class SingleSubstBuilder(LookupBuilder):
             An ``otTables.Lookup`` object representing the multiple
             substitution lookup.
         """
-        subtables = self.build_subst_subtables(self.mapping,
-                buildSingleSubstSubtable)
+        subtables = self.build_subst_subtables(self.mapping, buildSingleSubstSubtable)
         return self.buildLookup_(subtables)
 
     def getAlternateGlyphs(self):
@@ -859,6 +992,7 @@ class ClassPairPosSubtableBuilder(object):
     Attributes:
         builder (PairPosBuilder): A pair positioning lookup builder.
     """
+
     def __init__(self, builder):
         self.builder_ = builder
         self.classDef1_, self.classDef2_ = None, None
@@ -877,11 +1011,13 @@ class ClassPairPosSubtableBuilder(object):
             value2: An ``otTables.ValueRecord`` object for the right glyph's
                 positioning.
         """
-        mergeable = (not self.forceSubtableBreak_ and
-                     self.classDef1_ is not None and
-                     self.classDef1_.canAdd(gc1) and
-                     self.classDef2_ is not None and
-                     self.classDef2_.canAdd(gc2))
+        mergeable = (
+            not self.forceSubtableBreak_
+            and self.classDef1_ is not None
+            and self.classDef1_.canAdd(gc1)
+            and self.classDef2_ is not None
+            and self.classDef2_.canAdd(gc2)
+        )
         if not mergeable:
             self.flush_()
             self.classDef1_ = ClassDefBuilder(useClass0=True)
@@ -903,8 +1039,7 @@ class ClassPairPosSubtableBuilder(object):
     def flush_(self):
         if self.classDef1_ is None or self.classDef2_ is None:
             return
-        st = buildPairPosClassesSubtable(self.values_,
-                                             self.builder_.glyphMap)
+        st = buildPairPosClassesSubtable(self.values_, self.builder_.glyphMap)
         if st.Coverage is None:
             return
         self.subtables_.append(st)
@@ -930,8 +1065,9 @@ class PairPosBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 2)
+        LookupBuilder.__init__(self, font, location, "GPOS", 2)
         self.pairs = []  # [(gc1, value1, gc2, value2)*]
         self.glyphPairs = {}  # (glyph1, glyph2) --> (value1, value2)
         self.locations = {}  # (gc1, gc2) --> (filepath, line, column)
@@ -967,21 +1103,32 @@ class PairPosBuilder(LookupBuilder):
             # by an 'enum' rule to be overridden by preceding single pairs
             otherLoc = self.locations[key]
             log.debug(
-                'Already defined position for pair %s %s at %s; '
-                'choosing the first value',
-                glyph1, glyph2, otherLoc)
+                "Already defined position for pair %s %s at %s; "
+                "choosing the first value",
+                glyph1,
+                glyph2,
+                otherLoc,
+            )
         else:
             self.glyphPairs[key] = (value1, value2)
             self.locations[key] = location
 
     def add_subtable_break(self, location):
-        self.pairs.append((self.SUBTABLE_BREAK_, self.SUBTABLE_BREAK_,
-                           self.SUBTABLE_BREAK_, self.SUBTABLE_BREAK_))
+        self.pairs.append(
+            (
+                self.SUBTABLE_BREAK_,
+                self.SUBTABLE_BREAK_,
+                self.SUBTABLE_BREAK_,
+                self.SUBTABLE_BREAK_,
+            )
+        )
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.glyphPairs == other.glyphPairs and
-                self.pairs == other.pairs)
+        return (
+            LookupBuilder.equals(self, other)
+            and self.glyphPairs == other.glyphPairs
+            and self.pairs == other.pairs
+        )
 
     def build(self):
         """Build the lookup.
@@ -1009,8 +1156,7 @@ class PairPosBuilder(LookupBuilder):
             builder.addPair(glyphclass1, value1, glyphclass2, value2)
         subtables = []
         if self.glyphPairs:
-            subtables.extend(
-                buildPairPosGlyphs(self.glyphPairs, self.glyphMap))
+            subtables.extend(buildPairPosGlyphs(self.glyphPairs, self.glyphMap))
         for key in sorted(builders.keys()):
             subtables.extend(builders[key].subtables())
         return self.buildLookup_(subtables)
@@ -1032,8 +1178,9 @@ class SinglePosBuilder(LookupBuilder):
             `LOOKUP_FLAG_USE_MARK_FILTERING_SET` will be set on the lookup's
             flags.
     """
+
     def __init__(self, font, location):
-        LookupBuilder.__init__(self, font, location, 'GPOS', 1)
+        LookupBuilder.__init__(self, font, location, "GPOS", 1)
         self.locations = {}  # glyph -> (filename, line, column)
         self.mapping = {}  # glyph -> ot.ValueRecord
 
@@ -1052,7 +1199,8 @@ class SinglePosBuilder(LookupBuilder):
             raise OpenTypeLibError(
                 'Already defined different position for glyph "%s" at %s'
                 % (glyph, otherLoc),
-                location)
+                location,
+            )
         if otValueRecord:
             self.mapping[glyph] = otValueRecord
         self.locations[glyph] = location
@@ -1063,8 +1211,7 @@ class SinglePosBuilder(LookupBuilder):
         return curValue is None or curValue == value
 
     def equals(self, other):
-        return (LookupBuilder.equals(self, other) and
-                self.mapping == other.mapping)
+        return LookupBuilder.equals(self, other) and self.mapping == other.mapping
 
     def build(self):
         """Build the lookup.
@@ -1236,8 +1383,9 @@ def buildAnchor(x, y, point=None, deviceX=None, deviceY=None):
         self.AnchorPoint = point
         self.Format = 2
     if deviceX is not None or deviceY is not None:
-        assert self.Format == 1, \
-            "Either point, or both of deviceX/deviceY, must be None."
+        assert (
+            self.Format == 1
+        ), "Either point, or both of deviceX/deviceY, must be None."
         self.XDeviceTable = deviceX
         self.YDeviceTable = deviceY
         self.Format = 3
@@ -1375,8 +1523,8 @@ def buildDevice(deltas):
     self.EndSize = endSize = max(keys)
     assert 0 <= startSize <= endSize
     self.DeltaValue = deltaValues = [
-        deltas.get(size, 0)
-        for size in range(startSize, endSize + 1)]
+        deltas.get(size, 0) for size in range(startSize, endSize + 1)
+    ]
     maxDelta = max(deltaValues)
     minDelta = min(deltaValues)
     assert minDelta > -129 and maxDelta < 128
@@ -1666,8 +1814,7 @@ def _getValueFormat(f, values, i):
     return mask
 
 
-def buildPairPosClassesSubtable(pairs, glyphMap,
-                                valueFormat1=None, valueFormat2=None):
+def buildPairPosClassesSubtable(pairs, glyphMap, valueFormat1=None, valueFormat2=None):
     """Builds a class pair adjustment (GPOS2 format 2) subtable.
 
     Kerning tables are generally expressed as pair positioning tables using
@@ -1776,11 +1923,11 @@ def buildPairPosGlyphs(pairs, glyphMap):
         pos[(glyphA, glyphB)] = (valA, valB)
     return [
         buildPairPosGlyphsSubtable(pos, glyphMap, formatA, formatB)
-        for ((formatA, formatB), pos) in sorted(p.items())]
+        for ((formatA, formatB), pos) in sorted(p.items())
+    ]
 
 
-def buildPairPosGlyphsSubtable(pairs, glyphMap,
-                               valueFormat1=None, valueFormat2=None):
+def buildPairPosGlyphsSubtable(pairs, glyphMap, valueFormat1=None, valueFormat2=None):
     """Builds a single glyph-based pair adjustment (GPOS2 format 1) subtable.
 
     This builds a PairPos subtable from a dictionary of glyph pairs and
@@ -1825,8 +1972,7 @@ def buildPairPosGlyphsSubtable(pairs, glyphMap,
         ps = ot.PairSet()
         ps.PairValueRecord = []
         self.PairSet.append(ps)
-        for glyph2, val1, val2 in \
-                sorted(p[glyph], key=lambda x: glyphMap[x[0]]):
+        for glyph2, val1, val2 in sorted(p[glyph], key=lambda x: glyphMap[x[0]]):
             pvr = ot.PairValueRecord()
             pvr.SecondGlyph = glyph2
             pvr.Value1 = val1 if val1 and val1.getFormat() != 0 else None
@@ -1998,7 +2144,7 @@ def _makeDeviceTuple(device):
         device.DeltaFormat,
         device.StartSize,
         device.EndSize,
-        () if device.DeltaFormat & 0x8000 else tuple(device.DeltaValue)
+        () if device.DeltaFormat & 0x8000 else tuple(device.DeltaValue),
     )
 
 
@@ -2011,6 +2157,7 @@ def _getSinglePosValueSize(valueKey):
         else:
             count += 1
     return count
+
 
 def buildValue(value):
     """Builds a positioning value record.
@@ -2042,6 +2189,7 @@ def buildValue(value):
 
 # GDEF
 
+
 def buildAttachList(attachPoints, glyphMap):
     """Builds an AttachList subtable.
 
@@ -2061,8 +2209,7 @@ def buildAttachList(attachPoints, glyphMap):
         return None
     self = ot.AttachList()
     self.Coverage = buildCoverage(attachPoints.keys(), glyphMap)
-    self.AttachPoint = [buildAttachPoint(attachPoints[g])
-                        for g in self.Coverage.glyphs]
+    self.AttachPoint = [buildAttachPoint(attachPoints[g]) for g in self.Coverage.glyphs]
     self.GlyphCount = len(self.AttachPoint)
     return self
 
@@ -2191,6 +2338,7 @@ def buildMarkGlyphSetsDef(markSets, glyphMap):
 
 class ClassDefBuilder(object):
     """Helper for building ClassDef tables."""
+
     def __init__(self, useClass0):
         self.classes_ = set()
         self.glyphs_ = {}
@@ -2380,7 +2528,7 @@ def _buildAxisRecords(axes, nameTable):
             axisValRec = ot.AxisValue()
             axisValRec.AxisIndex = axisRecordIndex
             axisValRec.Flags = axisVal.get("flags", 0)
-            axisValRec.ValueNameID = _addName(nameTable, axisVal['name'])
+            axisValRec.ValueNameID = _addName(nameTable, axisVal["name"])
 
             if "value" in axisVal:
                 axisValRec.Value = axisVal["value"]
@@ -2392,8 +2540,12 @@ def _buildAxisRecords(axes, nameTable):
             elif "nominalValue" in axisVal:
                 axisValRec.Format = 2
                 axisValRec.NominalValue = axisVal["nominalValue"]
-                axisValRec.RangeMinValue = axisVal.get("rangeMinValue", AXIS_VALUE_NEGATIVE_INFINITY)
-                axisValRec.RangeMaxValue = axisVal.get("rangeMaxValue", AXIS_VALUE_POSITIVE_INFINITY)
+                axisValRec.RangeMinValue = axisVal.get(
+                    "rangeMinValue", AXIS_VALUE_NEGATIVE_INFINITY
+                )
+                axisValRec.RangeMaxValue = axisVal.get(
+                    "rangeMaxValue", AXIS_VALUE_POSITIVE_INFINITY
+                )
             else:
                 raise ValueError("Can't determine format for AxisValue")
 
@@ -2410,7 +2562,7 @@ def _buildAxisValuesFormat4(locations, axes, nameTable):
     for axisLocationDict in locations:
         axisValRec = ot.AxisValue()
         axisValRec.Format = 4
-        axisValRec.ValueNameID = _addName(nameTable, axisLocationDict['name'])
+        axisValRec.ValueNameID = _addName(nameTable, axisLocationDict["name"])
         axisValRec.Flags = axisLocationDict.get("flags", 0)
         axisValueRecords = []
         for tag, value in axisLocationDict["location"].items():
