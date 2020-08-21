@@ -402,6 +402,7 @@ MetaTools/roundTrip.py
 Snippets/README.md
 Snippets/checksum.py
 Snippets/cmap-format.py
+Snippets/decompose-ttf.py
 Snippets/dump_woff_metadata.py
 Snippets/edit_raw_table_data.py
 Snippets/fix-dflt-langsys.py
@@ -610,6 +611,8 @@ Tests/feaLib/data/PairPosSubtable.fea
 Tests/feaLib/data/PairPosSubtable.ttx
 Tests/feaLib/data/SingleSubstSubtable.fea
 Tests/feaLib/data/SingleSubstSubtable.ttx
+Tests/feaLib/data/SubstSubtable.fea
+Tests/feaLib/data/SubstSubtable.ttx
 Tests/feaLib/data/ZeroValue_ChainSinglePos_horizontal.fea
 Tests/feaLib/data/ZeroValue_ChainSinglePos_horizontal.ttx
 Tests/feaLib/data/ZeroValue_ChainSinglePos_vertical.fea
@@ -2051,8 +2054,8 @@ Tests/varLib/data/test_results/InterpolateLayoutGPOS_5_diff.ttx
 Tests/varLib/data/test_results/InterpolateLayoutGPOS_5_same.ttx
 Tests/varLib/data/test_results/InterpolateLayoutGPOS_6_diff.ttx
 Tests/varLib/data/test_results/InterpolateLayoutGPOS_6_same.ttx
-Tests/varLib/data/test_results/InterpolateLayoutGPOS_8_diff.ttx
-Tests/varLib/data/test_results/InterpolateLayoutGPOS_8_same.ttx
+Tests/varLib/data/test_results/InterpolateLayoutGPOS_7_diff.ttx
+Tests/varLib/data/test_results/InterpolateLayoutGPOS_7_same.ttx
 Tests/varLib/data/test_results/InterpolateLayoutGPOS_size_feat_same.ttx
 Tests/varLib/data/test_results/InterpolateLayoutMain.ttx
 Tests/varLib/data/test_results/InterpolateTestCFF2VF.ttx
