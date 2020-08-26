@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fonttools
-Version: 4.11.0
+Version: 4.14.0
 Summary: Tools to manipulate font files
 Home-page: http://github.com/fonttools/fonttools
 Author: Just van Rossum
@@ -21,8 +21,9 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
           licence <LICENSE>`__.
         | Among other things this means you can use it free of charge.
         
-        `User documentation <https://fonttools.readthedocs.io/en/latest/>` and
-        `developer documentation <https://fonttools.readthedocs.io/en/latest/developer.html>` are available at `Read the Docs <https://fonttools.readthedocs.io/>`.
+        `User documentation <https://fonttools.readthedocs.io/en/latest/>`_ and
+        `developer documentation <https://fonttools.readthedocs.io/en/latest/developer.html>`_
+        are available at `Read the Docs <https://fonttools.readthedocs.io/>`_.
         
         Installation
         ~~~~~~~~~~~~
@@ -211,15 +212,15 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
         Jelle Bosma, Sascha Brawer, Tom Byrer, Frédéric Coiffier, Vincent
-        Connare, David Corbett, Dave Crossland, Simon Daniels, Peter Dekkers,
-        Behdad Esfahbod, Behnam Esfahbod, Hannes Famira, Sam Fishman, Matt
-        Fontaine, Yannis Haralambous, Greg Hitchcock, Jeremie Hornus, Khaled
-        Hosny, John Hudson, Denis Moyogo Jacquerye, Jack Jansen, Tom Kacvinsky,
-        Jens Kutilek, Antoine Leca, Werner Lemberg, Tal Leming, Peter Lofting,
-        Cosimo Lupo, Masaya Nakamura, Dave Opstad, Laurence Penney, Roozbeh
-        Pournader, Garret Rieger, Read Roberts, Guido van Rossum, Just van
-        Rossum, Andreas Seidel, Georg Seifert, Chris Simpkins, Miguel Sousa,
-        Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul Wise.
+        Connare, David Corbett, Simon Cozens, Dave Crossland, Simon Daniels,
+        Peter Dekkers, Behdad Esfahbod, Behnam Esfahbod, Hannes Famira, Sam
+        Fishman, Matt Fontaine, Yannis Haralambous, Greg Hitchcock, Jeremie
+        Hornus, Khaled Hosny, John Hudson, Denis Moyogo Jacquerye, Jack Jansen,
+        Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal Leming,
+        Peter Lofting, Cosimo Lupo, Masaya Nakamura, Dave Opstad, Laurence
+        Penney, Roozbeh Pournader, Garret Rieger, Read Roberts, Guido van
+        Rossum, Just van Rossum, Andreas Seidel, Georg Seifert, Chris Simpkins,
+        Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul Wise.
         
         Copyrights
         ~~~~~~~~~~
@@ -252,6 +253,52 @@ Description: |Travis Build Status| |Appveyor Build status| |Coverage Status| |Py
         
         Changelog
         ~~~~~~~~~
+        
+        4.14.0 (released 2020-08-19)
+        ----------------------------
+        
+        - [feaLib] Allow anonymous classes in LookupFlags definitions (#2037).
+        - [Docs] Better document DesignSpace rules processing order (#2041).
+        - [ttLib] Fixed 21-year old bug in ``maxp.maxComponentDepth`` calculation (#2044,
+          #2045).
+        - [varLib.models] Fixed misspelled argument name in CLI entry point (81d0042a).
+        - [subset] When subsetting GSUB v1.1, fixed TypeError by checking whether the
+          optional FeatureVariations table is present (e63ecc5b).
+        - [Snippets] Added snippet to show how to decompose glyphs in a TTF (#2030).
+        - [otlLib] Generate GSUB type 5 and GPOS type 7 contextual lookups where appropriate
+          (#2016).
+        
+        4.13.0 (released 2020-07-10)
+        ----------------------------
+        
+        - [feaLib/otlLib] Moved lookup subtable builders from feaLib to otlLib; refactored
+          some common code (#2004, #2007).
+        - [docs] Document otlLib module (#2009).
+        - [glifLib] Fixed bug with some UFO .glif filenames clashing on case-insensitive
+          filesystems (#2001, #2002).
+        - [colorLib] Updated COLRv1 implementation following changes in the draft spec:
+          (#2008, googlefonts/colr-gradients-spec#24).
+        
+        4.12.1 (released 2020-06-16)
+        ----------------------------
+        
+        - [_n_a_m_e] Fixed error in ``addMultilingualName`` with one-character names.
+          Only attempt to recovered malformed UTF-16 data from a ``bytes`` string,
+          not from unicode ``str`` (#1997, #1998).
+        
+        4.12.0 (released 2020-06-09)
+        ----------------------------
+        
+        - [otlLib/varLib] Ensure that the ``AxisNameID`` in the ``STAT`` and ``fvar``
+          tables is grater than 255 as per OpenType spec (#1985, #1986).
+        - [docs] Document more modules in ``fontTools.misc`` package: ``filenames``,
+          ``fixedTools``, ``intTools``, ``loggingTools``, ``macCreatorType``, ``macRes``,
+          ``plistlib`` (#1981).
+        - [OS/2] Don't calculate whole sets of unicode codepoints, use faster and more memory
+          efficient ranges and bisect lookups (#1984).
+        - [voltLib] Support writing back abstract syntax tree as VOLT data (#1983).
+        - [voltLib] Accept DO_NOT_TOUCH_CMAP keyword (#1987).
+        - [subset/merge] Fixed a namespace clash involving a private helper class (#1955).
         
         4.11.0 (released 2020-05-28)
         ----------------------------
@@ -1974,13 +2021,13 @@ Classifier: Topic :: Text Processing :: Fonts
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Requires-Python: >=3.6
+Provides-Extra: ufo
+Provides-Extra: unicode
+Provides-Extra: interpolatable
 Provides-Extra: plot
 Provides-Extra: symfont
-Provides-Extra: interpolatable
-Provides-Extra: lxml
-Provides-Extra: ufo
-Provides-Extra: woff
-Provides-Extra: graphite
 Provides-Extra: all
+Provides-Extra: lxml
+Provides-Extra: woff
 Provides-Extra: type1
-Provides-Extra: unicode
+Provides-Extra: graphite

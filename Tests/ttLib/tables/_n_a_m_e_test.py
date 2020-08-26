@@ -294,6 +294,17 @@ class NameTableTest(unittest.TestCase):
 			nameTable.addMultilingualName({"en": "A", "la": "ⱾƤℚⱤ"})
 		captor.assertRegex("cannot store language la into 'ltag' table")
 
+	def test_addMultilingualName_minNameID(self):
+		table = table__n_a_m_e()
+		names, namesSubSet, namesSuperSet = self._get_test_names()
+		nameID = table.addMultilingualName(names, nameID=2)
+		self.assertEqual(nameID, 2)
+		nameID = table.addMultilingualName(names)
+		self.assertEqual(nameID, 2)
+		nameID = table.addMultilingualName(names, minNameID=256)
+		self.assertGreaterEqual(nameID, 256)
+		self.assertEqual(nameID, table.findMultilingualName(names, minNameID=256))
+
 	def test_decompile_badOffset(self):
                 # https://github.com/fonttools/fonttools/issues/525
 		table = table__n_a_m_e()
@@ -333,6 +344,11 @@ class NameRecordTest(unittest.TestCase):
 		name = makeName(b"\1", 111, 0, 2, 7)
 		self.assertEqual("utf_16_be", name.getEncoding())
 		self.assertRaises(UnicodeDecodeError, name.toUnicode)
+
+	def test_toUnicode_singleChar(self):
+		# https://github.com/fonttools/fonttools/issues/1997
+		name = makeName("A", 256, 3, 1, 0x409)
+		self.assertEqual(name.toUnicode(), "A")
 
 	def toXML(self, name):
 		writer = XMLWriter(BytesIO())

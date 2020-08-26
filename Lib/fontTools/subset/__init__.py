@@ -2,7 +2,6 @@
 #
 # Google Author(s): Behdad Esfahbod
 
-from fontTools.misc.py23 import *
 from fontTools.misc.fixedTools import otRound
 from fontTools import ttLib
 from fontTools.ttLib.tables import otTables
@@ -899,12 +898,12 @@ def __subset_classify_context(self):
 
 	if self.Format not in [1, 2, 3]:
 		return None	# Don't shoot the messenger; let it go
-	if not hasattr(self.__class__, "__ContextHelpers"):
-		self.__class__.__ContextHelpers = {}
-	if self.Format not in self.__class__.__ContextHelpers:
+	if not hasattr(self.__class__, "_subset__ContextHelpers"):
+		self.__class__._subset__ContextHelpers = {}
+	if self.Format not in self.__class__._subset__ContextHelpers:
 		helper = ContextHelper(self.__class__, self.Format)
-		self.__class__.__ContextHelpers[self.Format] = helper
-	return self.__class__.__ContextHelpers[self.Format]
+		self.__class__._subset__ContextHelpers[self.Format] = helper
+	return self.__class__._subset__ContextHelpers[self.Format]
 
 @_add_method(otTables.ContextSubst,
 			 otTables.ChainContextSubst)
@@ -1635,9 +1634,13 @@ def prune_post_subset(self, font, options):
 	#	table.ScriptList = None
 
 	if hasattr(table, 'FeatureVariations'):
-		if not (table.FeatureList and table.FeatureVariations.FeatureVariationRecord):
+		# drop FeatureVariations if there are no features to substitute
+		if table.FeatureVariations and not (
+			table.FeatureList and table.FeatureVariations.FeatureVariationRecord
+		):
 			table.FeatureVariations = None
 
+		# downgrade table version if there are no FeatureVariations
 		if not table.FeatureVariations and table.Version == 0x00010001:
 			table.Version = 0x00010000
 
