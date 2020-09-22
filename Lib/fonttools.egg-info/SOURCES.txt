@@ -182,6 +182,7 @@ Lib/fontTools/feaLib/builder.py
 Lib/fontTools/feaLib/error.py
 Lib/fontTools/feaLib/lexer.py
 Lib/fontTools/feaLib/location.py
+Lib/fontTools/feaLib/lookupDebugInfo.py
 Lib/fontTools/feaLib/parser.py
 Lib/fontTools/misc/__init__.py
 Lib/fontTools/misc/arrayTools.py
@@ -199,7 +200,6 @@ Lib/fontTools/misc/intTools.py
 Lib/fontTools/misc/loggingTools.py
 Lib/fontTools/misc/macCreatorType.py
 Lib/fontTools/misc/macRes.py
-Lib/fontTools/misc/plistlib.py
 Lib/fontTools/misc/psCharStrings.py
 Lib/fontTools/misc/psLib.py
 Lib/fontTools/misc/psOperators.py
@@ -212,6 +212,8 @@ Lib/fontTools/misc/timeTools.py
 Lib/fontTools/misc/transform.py
 Lib/fontTools/misc/xmlReader.py
 Lib/fontTools/misc/xmlWriter.py
+Lib/fontTools/misc/plistlib/__init__.py
+Lib/fontTools/misc/plistlib/py.typed
 Lib/fontTools/mtiLib/__init__.py
 Lib/fontTools/mtiLib/__main__.py
 Lib/fontTools/otlLib/__init__.py
@@ -266,6 +268,7 @@ Lib/fontTools/ttLib/tables/C_F_F__2.py
 Lib/fontTools/ttLib/tables/C_O_L_R_.py
 Lib/fontTools/ttLib/tables/C_P_A_L_.py
 Lib/fontTools/ttLib/tables/D_S_I_G_.py
+Lib/fontTools/ttLib/tables/D__e_b_g.py
 Lib/fontTools/ttLib/tables/DefaultTable.py
 Lib/fontTools/ttLib/tables/E_B_D_T_.py
 Lib/fontTools/ttLib/tables/E_B_L_C_.py
@@ -670,6 +673,7 @@ Tests/feaLib/data/ignore_pos.ttx
 Tests/feaLib/data/include0.fea
 Tests/feaLib/data/language_required.fea
 Tests/feaLib/data/language_required.ttx
+Tests/feaLib/data/lookup-debug.ttx
 Tests/feaLib/data/lookup.fea
 Tests/feaLib/data/lookup.ttx
 Tests/feaLib/data/lookupflag.fea
@@ -954,6 +958,7 @@ Tests/t1Lib/data/TestT1-Regular.pfa
 Tests/t1Lib/data/TestT1-Regular.pfb
 Tests/t1Lib/data/TestT1-weird-zeros.pfa
 Tests/ttLib/sfnt_test.py
+Tests/ttLib/ttFont_test.py
 Tests/ttLib/woff2_test.py
 Tests/ttLib/data/TestOTF-Regular.otx
 Tests/ttLib/data/TestTTF-Regular.ttx
