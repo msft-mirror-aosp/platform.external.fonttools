@@ -254,6 +254,7 @@ Lib/fontTools/svgLib/path/shapes.py
 Lib/fontTools/t1Lib/__init__.py
 Lib/fontTools/ttLib/__init__.py
 Lib/fontTools/ttLib/macUtils.py
+Lib/fontTools/ttLib/removeOverlaps.py
 Lib/fontTools/ttLib/sfnt.py
 Lib/fontTools/ttLib/standardGlyphOrder.py
 Lib/fontTools/ttLib/ttCollection.py
@@ -1705,6 +1706,7 @@ Tests/varLib/data/InterpolateLayout3.designspace
 Tests/varLib/data/KerningMerging.designspace
 Tests/varLib/data/PartialInstancerTest-VF.ttx
 Tests/varLib/data/PartialInstancerTest2-VF.ttx
+Tests/varLib/data/PartialInstancerTest3-VF.ttx
 Tests/varLib/data/SingleMaster.designspace
 Tests/varLib/data/SparseMasters.designspace
 Tests/varLib/data/TestBASE.designspace
@@ -2073,6 +2075,9 @@ Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-400,100.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-400,62.5.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-900,100.ttx
 Tests/varLib/data/test_results/PartialInstancerTest2-VF-instance-900,62.5.ttx
+Tests/varLib/data/test_results/PartialInstancerTest3-VF-instance-400-no-overlap-flags.ttx
+Tests/varLib/data/test_results/PartialInstancerTest3-VF-instance-400-no-overlaps.ttx
+Tests/varLib/data/test_results/PartialInstancerTest3-VF-instance-700-no-overlaps.ttx
 Tests/varLib/data/test_results/SingleMaster.ttx
 Tests/varLib/data/test_results/SparseMasters.ttx
 Tests/varLib/data/test_results/TestBASE.ttx
