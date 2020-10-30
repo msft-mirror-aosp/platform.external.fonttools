@@ -6,6 +6,7 @@ zopfli>=0.1.4
 lz4>=1.7.4.2
 matplotlib
 sympy
+skia-pathops>=0.5.0
 
 [all:platform_python_implementation != "PyPy"]
 brotli>=1.0.1
@@ -34,6 +35,9 @@ munkres
 
 [lxml]
 lxml<5,>=4.0
+
+[pathops]
+skia-pathops>=0.5.0
 
 [plot]
 matplotlib
