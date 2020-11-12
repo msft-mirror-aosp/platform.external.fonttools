@@ -7,13 +7,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://github.com/fonttools/fonttools/releases/download/4.16.1/fonttools-4.16.1.zip"
+    value: "https://github.com/fonttools/fonttools/releases/download/4.17.0/fonttools-4.17.0.zip"
   }
-  version: "4.16.1"
+  version: "4.17.0"
   license_type: NOTICE
   last_upgrade_date {
     year: 2020
-    month: 10
-    day: 28
+    month: 11
+    day: 12
   }
 }
