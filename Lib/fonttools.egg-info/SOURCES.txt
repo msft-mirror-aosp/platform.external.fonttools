@@ -227,6 +227,7 @@ Lib/fontTools/pens/boundsPen.py
 Lib/fontTools/pens/cocoaPen.py
 Lib/fontTools/pens/cu2quPen.py
 Lib/fontTools/pens/filterPen.py
+Lib/fontTools/pens/hashPointPen.py
 Lib/fontTools/pens/momentsPen.py
 Lib/fontTools/pens/perimeterPen.py
 Lib/fontTools/pens/pointInsidePen.py
@@ -873,6 +874,7 @@ Tests/pens/areaPen_test.py
 Tests/pens/basePen_test.py
 Tests/pens/boundsPen_test.py
 Tests/pens/cu2quPen_test.py
+Tests/pens/hashPointPen_test.py
 Tests/pens/perimeterPen_test.py
 Tests/pens/pointInsidePen_test.py
 Tests/pens/pointPen_test.py
@@ -1698,6 +1700,7 @@ Tests/varLib/data/BuildAvarIdentityMaps.designspace
 Tests/varLib/data/BuildAvarSingleAxis.designspace
 Tests/varLib/data/BuildGvarCompositeExplicitDelta.designspace
 Tests/varLib/data/FeatureVars.designspace
+Tests/varLib/data/FeatureVarsCustomTag.designspace
 Tests/varLib/data/FeatureVarsWholeRange.designspace
 Tests/varLib/data/FeatureVarsWholeRangeEmpty.designspace
 Tests/varLib/data/InterpolateLayout.designspace
@@ -2040,6 +2043,7 @@ Tests/varLib/data/test_results/BuildGvarCompositeExplicitDelta.ttx
 Tests/varLib/data/test_results/BuildMain.ttx
 Tests/varLib/data/test_results/BuildTestCFF2.ttx
 Tests/varLib/data/test_results/FeatureVars.ttx
+Tests/varLib/data/test_results/FeatureVarsCustomTag.ttx
 Tests/varLib/data/test_results/FeatureVarsWholeRange.ttx
 Tests/varLib/data/test_results/FeatureVars_rclt.ttx
 Tests/varLib/data/test_results/InterpolateLayout.ttx
