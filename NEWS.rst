@@ -1,3 +1,49 @@
+4.17.1 (released 2020-11-16)
+----------------------------
+
+- [colorLib] Fixed regression in 4.17.0 when building COLR v0 table; when color
+  layers are stored in UFO lib plist, we can't distinguish tuples from lists so
+  we need to accept either types (e5439eb9, googlefonts/ufo2ft/issues#426).
+
+4.17.0 (released 2020-11-12)
+----------------------------
+
+- [colorLib/otData] Updated to latest draft ``COLR`` v1 spec (#2092).
+- [svgLib] Fixed parsing error when arc commands' boolean flags are not separated
+  by space or comma (#2094).
+- [varLib] Interpret empty non-default glyphs as 'missing', if the default glyph is
+  not empty (#2082).
+- [feaLib.builder] Only stash lookup location for ``Debg`` if ``Builder.buildLookups_``
+  has cooperated (#2065, #2067).
+- [varLib] Fixed bug in VarStore optimizer (#2073, #2083).
+- [varLib] Add designspace lib key for custom feavar feature tag (#2080).
+- Add HashPointPen adapted from psautohint. With this pen, a hash value of a glyph
+  can be computed, which can later be used to detect glyph changes (#2005).
+
+4.16.1 (released 2020-10-05)
+----------------------------
+
+- [varLib.instancer] Fixed ``TypeError`` exception when instantiating a VF with
+  a GSUB table 1.1 in which ``FeatureVariations`` attribute is present but set to
+  ``None`` -- indicating that optional ``FeatureVariations`` is missing (#2077).
+- [glifLib] Make ``x`` and ``y`` attributes of the ``point`` element required
+  even when validation is turned off, and raise a meaningful ``GlifLibError``
+  message when that happens (#2075).
+
+4.16.0 (released 2020-09-30)
+----------------------------
+
+- [removeOverlaps] Added new module and ``removeOverlaps`` function that merges
+  overlapping contours and components in TrueType glyphs. It requires the
+  `skia-pathops <https://github.com/fonttools/skia-pathops>`__ module.
+  Note that removing overlaps invalidates the TrueType hinting (#2068).
+- [varLib.instancer] Added ``--remove-overlaps`` command-line option.
+  The ``overlap`` option in ``instantiateVariableFont`` now takes an ``OverlapMode``
+  enum: 0: KEEP_AND_DONT_SET_FLAGS, 1: KEEP_AND_SET_FLAGS (default), and 2: REMOVE.
+  The latter is equivalent to calling ``removeOverlaps`` on the generated static
+  instance. The option continues to accept ``bool`` value for backward compatibility.
+
+
 4.15.0 (released 2020-09-21)
 ----------------------------
 
