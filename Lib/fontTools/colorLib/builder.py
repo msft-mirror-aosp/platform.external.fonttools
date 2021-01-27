@@ -6,6 +6,7 @@ import collections
 import copy
 import enum
 from functools import partial
+from math import ceil, log
 from typing import (
     Any,
     Dict,
@@ -34,6 +35,7 @@ from fontTools.ttLib.tables.otTables import (
     VariableInt,
 )
 from .errors import ColorLibError
+from .geometry import round_start_circle_stable_containment
 
 
 # TODO move type aliases to colorLib.types?
@@ -328,9 +330,9 @@ def _split_color_glyphs_by_version(
 
 def _to_variable_value(
     value: _ScalarInput,
-    minValue: _Number,
-    maxValue: _Number,
-    cls: Type[VariableValue],
+    cls: Type[VariableValue] = VariableFloat,
+    minValue: Optional[_Number] = None,
+    maxValue: Optional[_Number] = None,
 ) -> VariableValue:
     if not isinstance(value, cls):
         try:
@@ -339,9 +341,9 @@ def _to_variable_value(
             value = cls(value)
         else:
             value = cls._make(it)
-    if value.value < minValue:
+    if minValue is not None and value.value < minValue:
         raise OverflowError(f"{cls.__name__}: {value.value} < {minValue}")
-    if value.value > maxValue:
+    if maxValue is not None and value.value > maxValue:
         raise OverflowError(f"{cls.__name__}: {value.value} < {maxValue}")
     return value
 
@@ -526,7 +528,21 @@ class LayerV1ListBuilder:
         ot_paint.Format = int(ot.Paint.Format.PaintRadialGradient)
         ot_paint.ColorLine = _to_color_line(colorLine)
 
-        for i, (x, y), r in [(0, c0, r0), (1, c1, r1)]:
+        # normalize input types (which may or may not specify a varIdx)
+        x0, y0 = _to_variable_value(c0[0]), _to_variable_value(c0[1])
+        r0 = _to_variable_value(r0)
+        x1, y1 = _to_variable_value(c1[0]), _to_variable_value(c1[1])
+        r1 = _to_variable_value(r1)
+
+        # avoid abrupt change after rounding when c0 is near c1's perimeter
+        c = round_start_circle_stable_containment(
+            (x0.value, y0.value), r0.value, (x1.value, y1.value), r1.value
+        )
+        x0, y0 = x0._replace(value=c.centre[0]), y0._replace(value=c.centre[1])
+        r0 = r0._replace(value=c.radius)
+
+        for i, (x, y, r) in enumerate(((x0, y0, r0), (x1, y1, r1))):
+            # rounding happens here as floats are converted to integers
             setattr(ot_paint, f"x{i}", _to_variable_int16(x))
             setattr(ot_paint, f"y{i}", _to_variable_int16(y))
             setattr(ot_paint, f"r{i}", _to_variable_uint16(r))
@@ -617,7 +633,10 @@ class LayerV1ListBuilder:
         ot_paint.Format = int(ot.Paint.Format.PaintColrLayers)
         self.slices.append(ot_paint)
 
-        paints = [self.buildPaint(p) for p in paints]
+        paints = [
+            self.buildPaint(p)
+            for p in _build_n_ary_tree(paints, n=MAX_PAINT_COLR_LAYER_COUNT)
+        ]
 
         # Look for reuse, with preference to longer sequences
         found_reuse = True
@@ -761,3 +780,45 @@ def buildColrV1(
     glyphs.BaseGlyphCount = len(baseGlyphs)
     glyphs.BaseGlyphV1Record = baseGlyphs
     return (layers, glyphs)
+
+
+def _build_n_ary_tree(leaves, n):
+    """Build N-ary tree from sequence of leaf nodes.
+
+    Return a list of lists where each non-leaf node is a list containing
+    max n nodes.
+    """
+    if not leaves:
+        return []
+
+    assert n > 1
+
+    depth = ceil(log(len(leaves), n))
+
+    if depth <= 1:
+        return list(leaves)
+
+    # Fully populate complete subtrees of root until we have enough leaves left
+    root = []
+    unassigned = None
+    full_step = n ** (depth - 1)
+    for i in range(0, len(leaves), full_step):
+        subtree = leaves[i : i + full_step]
+        if len(subtree) < full_step:
+            unassigned = subtree
+            break
+        while len(subtree) > n:
+            subtree = [subtree[k : k + n] for k in range(0, len(subtree), n)]
+        root.append(subtree)
+
+    if unassigned:
+        # Recurse to fill the last subtree, which is the only partially populated one
+        subtree = _build_n_ary_tree(unassigned, n)
+        if len(subtree) <= n - len(root):
+            # replace last subtree with its children if they can still fit
+            root.extend(subtree)
+        else:
+            root.append(subtree)
+        assert len(root) <= n
+
+    return root
