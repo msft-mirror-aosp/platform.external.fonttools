@@ -138,7 +138,7 @@ def interpolate_cff2_metrics(varfont, topDict, glyphOrder, loc):
 			lsb_delta = 0
 		else:
 			lsb = boundsPen.bounds[0]
-		lsb_delta = entry[1] - lsb
+			lsb_delta = entry[1] - lsb
 
 		if lsb_delta or width_delta:
 			if width_delta:
@@ -257,7 +257,7 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 		if not tableTag in varfont:
 			continue
 		table = varfont[tableTag].table
-		if not hasattr(table, 'FeatureVariations'):
+		if not getattr(table, 'FeatureVariations', None):
 			continue
 		variations = table.FeatureVariations
 		for record in variations.FeatureVariationRecord:

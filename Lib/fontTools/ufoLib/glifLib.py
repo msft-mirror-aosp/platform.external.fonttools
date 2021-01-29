@@ -135,6 +135,7 @@ class GlyphSet(_UFOBaseIO):
 		ufoFormatVersion=None,
 		validateRead=True,
 		validateWrite=True,
+		expectContentsFile=False,
 	):
 		"""
 		'path' should be a path (string) to an existing local directory, or
@@ -148,6 +149,9 @@ class GlyphSet(_UFOBaseIO):
 
 		``validateRead`` will validate read operations. Its default is ``True``.
 		``validateWrite`` will validate write operations. Its default is ``True``.
+		``expectContentsFile`` will raise a GlifLibError if a contents.plist file is
+		not found on the glyph set file system. This should be set to ``True`` if you
+		are reading an existing UFO and ``False`` if you create a fresh	glyph set.
 		"""
 		try:
 			ufoFormatVersion = UFOFormatVersion(ufoFormatVersion)
@@ -191,6 +195,8 @@ class GlyphSet(_UFOBaseIO):
 		self.fs = filesystem
 		# if glyphSet contains no 'contents.plist', we consider it empty
 		self._havePreviousFile = filesystem.exists(CONTENTS_FILENAME)
+		if expectContentsFile and not self._havePreviousFile:
+			raise GlifLibError(f"{CONTENTS_FILENAME} is missing.")
 		# attribute kept for backward compatibility
 		self.ufoFormatVersion = ufoFormatVersion.major
 		self.ufoFormatVersionTuple = ufoFormatVersion
@@ -1416,10 +1422,10 @@ def _validateAndMassagePointStructures(contour, pointAttributes, openContourOffC
 				raise GlifLibError("Unknown child elements in point element.")
 		# x and y are required
 		for attr in ("x", "y"):
-			value = element.get(attr)
-			if validate and value is None:
-				raise GlifLibError("Required %s attribute is missing in point element." % attr)
-			point[attr] = _number(value)
+			try:
+				point[attr] = _number(point[attr])
+			except KeyError as e:
+				raise GlifLibError(f"Required {attr} attribute is missing in point element.") from e
 		# segment type
 		pointType = point.pop("type", "offcurve")
 		if validate and pointType not in pointTypeOptions:

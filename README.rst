@@ -1,4 +1,4 @@
-|Travis Build Status| |Appveyor Build status| |Coverage Status| |PyPI| |Gitter Chat|
+|CI Build Status| |Coverage Status| |PyPI| |Gitter Chat|
 
 What is this?
 ~~~~~~~~~~~~~
@@ -174,9 +174,19 @@ are required to unlock the extra features named "ufo", etc.
 
   *Extra:* ``type1``
 
-- ``Lib/fontTools/pens/cocoaPen.py``
+- ``Lib/fontTools/ttLib/removeOverlaps.py``
 
-  Pen for drawing glyphs with Cocoa ``NSBezierPath``, requires:
+  Simplify TrueType glyphs by merging overlapping contours and components.
+
+  * `skia-pathops <https://pypi.python.org/pypy/skia-pathops>`__: Python
+    bindings for the Skia library's PathOps module, performing boolean
+    operations on paths (union, intersection, etc.).
+
+  *Extra:* ``pathops``
+
+- ``Lib/fontTools/pens/cocoaPen.py`` and ``Lib/fontTools/pens/quartzPen.py``
+
+  Pens for drawing glyphs with Cocoa ``NSBezierPath`` or ``CGPath`` require:
 
   * `PyObjC <https://pypi.python.org/pypi/pyobjc>`__: the bridge between
     Python and the Objective-C runtime (macOS platform only).
@@ -201,16 +211,17 @@ Acknowledgements
 In alphabetical order:
 
 Olivier Berten, Samyak Bhuta, Erik van Blokland, Petr van Blokland,
-Jelle Bosma, Sascha Brawer, Tom Byrer, Frédéric Coiffier, Vincent
-Connare, David Corbett, Simon Cozens, Dave Crossland, Simon Daniels,
-Peter Dekkers, Behdad Esfahbod, Behnam Esfahbod, Hannes Famira, Sam
-Fishman, Matt Fontaine, Yannis Haralambous, Greg Hitchcock, Jeremie
-Hornus, Khaled Hosny, John Hudson, Denis Moyogo Jacquerye, Jack Jansen,
-Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal Leming,
-Peter Lofting, Cosimo Lupo, Masaya Nakamura, Dave Opstad, Laurence
-Penney, Roozbeh Pournader, Garret Rieger, Read Roberts, Guido van
-Rossum, Just van Rossum, Andreas Seidel, Georg Seifert, Chris Simpkins,
-Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov, Paul Wise.
+Jelle Bosma, Sascha Brawer, Tom Byrer, Antonio Cavedoni, Frédéric 
+Coiffier, Vincent Connare, David Corbett, Simon Cozens, Dave Crossland, 
+Simon Daniels, Peter Dekkers, Behdad Esfahbod, Behnam Esfahbod, Hannes 
+Famira, Sam Fishman, Matt Fontaine, Yannis Haralambous, Greg Hitchcock, 
+Jeremie Hornus, Khaled Hosny, John Hudson, Denis Moyogo Jacquerye, Jack 
+Jansen, Tom Kacvinsky, Jens Kutilek, Antoine Leca, Werner Lemberg, Tal 
+Leming, Peter Lofting, Cosimo Lupo, Masaya Nakamura, Dave Opstad, 
+Laurence Penney, Roozbeh Pournader, Garret Rieger, Read Roberts, Guido 
+van Rossum, Just van Rossum, Andreas Seidel, Georg Seifert, Chris 
+Simpkins, Miguel Sousa, Adam Twardoch, Adrien Tétar, Vitaly Volkov, 
+Paul Wise.
 
 Copyrights
 ~~~~~~~~~~
@@ -229,10 +240,8 @@ Rights Reserved.
 
 Have fun!
 
-.. |Travis Build Status| image:: https://travis-ci.org/fonttools/fonttools.svg
-   :target: https://travis-ci.org/fonttools/fonttools
-.. |Appveyor Build status| image:: https://ci.appveyor.com/api/projects/status/0f7fmee9as744sl7/branch/master?svg=true
-   :target: https://ci.appveyor.com/project/fonttools/fonttools/branch/master
+.. |CI Build Status| image:: https://github.com/fonttools/fonttools/workflows/Test/badge.svg
+   :target: https://github.com/fonttools/fonttools/actions?query=workflow%3ATest
 .. |Coverage Status| image:: https://codecov.io/gh/fonttools/fonttools/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/fonttools/fonttools
 .. |PyPI| image:: https://img.shields.io/pypi/v/fonttools.svg

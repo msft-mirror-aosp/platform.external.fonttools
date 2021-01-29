@@ -21,7 +21,10 @@ import pytest
 
 haveBrotli = False
 try:
-	import brotli
+	try:
+		import brotlicffi as brotli
+	except ImportError:
+		import brotli
 	haveBrotli = True
 except ImportError:
 	pass
@@ -200,7 +203,7 @@ def normalise_font(font, padding=4):
 	# drop DSIG but keep a copy
 	DSIG_copy = copy.deepcopy(font['DSIG'])
 	del font['DSIG']
-	# ovverride TTFont attributes
+	# override TTFont attributes
 	origFlavor = font.flavor
 	origRecalcBBoxes = font.recalcBBoxes
 	origRecalcTimestamp = font.recalcTimestamp
