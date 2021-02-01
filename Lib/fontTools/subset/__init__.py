@@ -175,8 +175,9 @@ Glyph set expansion:
             * Keep default set of features plus 'aalt', but drop 'vrt2'.
   --layout-scripts[+|-]=<script>[,<script>...]
       Specify (=), add to (+=) or exclude from (-=) the comma-separated
-      set of OpenType layout script tags that will be preserved.  By
-      default all scripts are retained ('*').
+      set of OpenType layout script tags that will be preserved. LangSys tags
+      can be appended to script tag, separated by '.', for example:
+      'arab.dflt,arab.URD,latn.TRK'. By default all scripts are retained ('*').
 
 Hinting options:
   --hinting
@@ -1532,12 +1533,28 @@ def subset_feature_tags(self, feature_tags):
 
 @_add_method(ttLib.getTableClass('GSUB'),
 	     ttLib.getTableClass('GPOS'))
-def subset_script_tags(self, script_tags):
+def subset_script_tags(self, tags):
+	langsys = {}
+	script_tags = set()
+	for tag in tags:
+		script_tag, lang_tag = tag.split(".") if "." in tag else (tag, '*')
+		script_tags.add(script_tag.ljust(4))
+		langsys.setdefault(script_tag, set()).add(lang_tag.ljust(4))
+
 	if self.table.ScriptList:
 		self.table.ScriptList.ScriptRecord = \
 			[s for s in self.table.ScriptList.ScriptRecord
 			 if s.ScriptTag in script_tags]
 		self.table.ScriptList.ScriptCount = len(self.table.ScriptList.ScriptRecord)
+
+		for record in self.table.ScriptList.ScriptRecord:
+			if record.ScriptTag in langsys and '*   ' not in langsys[record.ScriptTag]:
+				record.Script.LangSysRecord = \
+					[l for l in record.Script.LangSysRecord
+					 if l.LangSysTag in langsys[record.ScriptTag]]
+				record.Script.LangSysCount = len(record.Script.LangSysRecord)
+				if "dflt" not in langsys[record.ScriptTag]:
+					record.Script.DefaultLangSys = None
 
 @_add_method(ttLib.getTableClass('GSUB'),
 			 ttLib.getTableClass('GPOS'))
@@ -2190,7 +2207,17 @@ def prune_pre_subset(self, font, options):
 @_add_method(ttLib.getTableClass('cmap'))
 def subset_glyphs(self, s):
 	s.glyphs = None # We use s.glyphs_requested and s.unicodes_requested only
+
+	tables_format12_bmp = []
+	table_plat0_enc3 = {}  # Unicode platform, Unicode BMP only, keyed by language
+	table_plat3_enc1 = {}  # Windows platform, Unicode BMP, keyed by language
+
 	for t in self.tables:
+		if t.platformID == 0 and t.platEncID == 3:
+			table_plat0_enc3[t.language] = t
+		if t.platformID == 3 and t.platEncID == 1:
+			table_plat3_enc1[t.language] = t
+
 		if t.format == 14:
 			# TODO(behdad) We drop all the default-UVS mappings
 			# for glyphs_requested.  So it's the caller's responsibility to make
@@ -2202,16 +2229,38 @@ def subset_glyphs(self, s):
 		elif t.isUnicode():
 			t.cmap = {u:g for u,g in t.cmap.items()
 				      if g in s.glyphs_requested or u in s.unicodes_requested}
+			# Collect format 12 tables that hold only basic multilingual plane
+			# codepoints.
+			if t.format == 12 and t.cmap and max(t.cmap.keys()) < 0x10000:
+				tables_format12_bmp.append(t)
 		else:
 			t.cmap = {u:g for u,g in t.cmap.items()
 				      if g in s.glyphs_requested}
+
+	# Fomat 12 tables are redundant if they contain just the same BMP codepoints
+	# their little BMP-only encoding siblings contain.
+	for t in tables_format12_bmp:
+		if (
+			t.platformID == 0  # Unicode platform
+			and t.platEncID == 4  # Unicode full repertoire
+			and t.language in table_plat0_enc3  # Have a BMP-only sibling?
+			and table_plat0_enc3[t.language].cmap == t.cmap
+		):
+			t.cmap.clear()
+		elif (
+			t.platformID == 3  # Windows platform
+			and t.platEncID == 10  # Unicode full repertoire
+			and t.language in table_plat3_enc1  # Have a BMP-only sibling?
+			and table_plat3_enc1[t.language].cmap == t.cmap
+		):
+			t.cmap.clear()
+
 	self.tables = [t for t in self.tables
 			 if (t.cmap if t.format != 14 else t.uvsDict)]
 	self.numSubTables = len(self.tables)
 	# TODO(behdad) Convert formats when needed.
 	# In particular, if we have a format=12 without non-BMP
-	# characters, either drop format=12 one or convert it
-	# to format=4 if there's not one.
+	# characters, convert it to format=4 if there's not one.
 	return True # Required table
 
 @_add_method(ttLib.getTableClass('DSIG'))

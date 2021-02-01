@@ -1,7 +1,8 @@
 from fontTools.ttLib import newTable
 from fontTools.ttLib.tables import otTables as ot
 from fontTools.colorLib import builder
-from fontTools.colorLib.builder import LayerV1ListBuilder
+from fontTools.colorLib.geometry import round_start_circle_stable_containment, Circle
+from fontTools.colorLib.builder import LayerV1ListBuilder, _build_n_ary_tree
 from fontTools.colorLib.errors import ColorLibError
 import pytest
 from typing import List
@@ -544,7 +545,7 @@ def test_buildPaintComposite():
     composite = layerBuilder.buildPaintComposite(
         mode=ot.CompositeMode.SRC_OVER,
         source={
-            "format": 8,
+            "format": 11,
             "mode": "src_over",
             "source": {"format": 5, "glyph": "c", "paint": 2},
             "backdrop": {"format": 5, "glyph": "b", "paint": 1},
@@ -572,6 +573,60 @@ def test_buildPaintComposite():
     assert composite.BackdropPaint.Glyph == "a"
     assert composite.BackdropPaint.Paint.Format == ot.Paint.Format.PaintSolid
     assert composite.BackdropPaint.Paint.Color.PaletteIndex == 0
+
+
+def test_buildPaintTranslate():
+    layerBuilder = LayerV1ListBuilder()
+    paint = layerBuilder.buildPaintTranslate(
+        paint=layerBuilder.buildPaintGlyph(
+            "a", layerBuilder.buildPaintSolid(paletteIndex=0, alpha=1.0)
+        ),
+        dx=123,
+        dy=-345,
+    )
+
+    assert paint.Format == ot.Paint.Format.PaintTranslate
+    assert paint.Paint.Format == ot.Paint.Format.PaintGlyph
+    assert paint.dx.value == 123
+    assert paint.dy.value == -345
+
+
+def test_buildPaintRotate():
+    layerBuilder = LayerV1ListBuilder()
+    paint = layerBuilder.buildPaintRotate(
+        paint=layerBuilder.buildPaintGlyph(
+            "a", layerBuilder.buildPaintSolid(paletteIndex=0, alpha=1.0)
+        ),
+        angle=15,
+        centerX=127,
+        centerY=129,
+    )
+
+    assert paint.Format == ot.Paint.Format.PaintRotate
+    assert paint.Paint.Format == ot.Paint.Format.PaintGlyph
+    assert paint.angle.value == 15
+    assert paint.centerX.value == 127
+    assert paint.centerY.value == 129
+
+
+def test_buildPaintSkew():
+    layerBuilder = LayerV1ListBuilder()
+    paint = layerBuilder.buildPaintSkew(
+        paint=layerBuilder.buildPaintGlyph(
+            "a", layerBuilder.buildPaintSolid(paletteIndex=0, alpha=1.0)
+        ),
+        xSkewAngle=15,
+        ySkewAngle=42,
+        centerX=127,
+        centerY=129,
+    )
+
+    assert paint.Format == ot.Paint.Format.PaintSkew
+    assert paint.Paint.Format == ot.Paint.Format.PaintGlyph
+    assert paint.xSkewAngle.value == 15
+    assert paint.ySkewAngle.value == 42
+    assert paint.centerX.value == 127
+    assert paint.centerY.value == 129
 
 
 def test_buildColrV1():
@@ -617,6 +672,43 @@ def test_buildColrV1():
     assert baseGlyphs.BaseGlyphV1Record[0].BaseGlyph == "a"
     assert baseGlyphs.BaseGlyphV1Record[1].BaseGlyph == "d"
     assert baseGlyphs.BaseGlyphV1Record[2].BaseGlyph == "g"
+
+
+def test_buildColrV1_more_than_255_paints():
+    num_paints = 364
+    colorGlyphs = {
+        "a": [
+            {
+                "format": 5,  # PaintGlyph
+                "paint": 0,
+                "glyph": name,
+            }
+            for name in (f"glyph{i}" for i in range(num_paints))
+        ],
+    }
+    layers, baseGlyphs = builder.buildColrV1(colorGlyphs)
+    paints = layers.Paint
+
+    assert len(paints) == num_paints + 1
+
+    assert all(paints[i].Format == ot.Paint.Format.PaintGlyph for i in range(255))
+
+    assert paints[255].Format == ot.Paint.Format.PaintColrLayers
+    assert paints[255].FirstLayerIndex == 0
+    assert paints[255].NumLayers == 255
+
+    assert all(
+        paints[i].Format == ot.Paint.Format.PaintGlyph
+        for i in range(256, num_paints + 1)
+    )
+
+    assert baseGlyphs.BaseGlyphCount == len(colorGlyphs)
+    assert baseGlyphs.BaseGlyphV1Record[0].BaseGlyph == "a"
+    assert (
+        baseGlyphs.BaseGlyphV1Record[0].Paint.Format == ot.Paint.Format.PaintColrLayers
+    )
+    assert baseGlyphs.BaseGlyphV1Record[0].Paint.FirstLayerIndex == 255
+    assert baseGlyphs.BaseGlyphV1Record[0].Paint.NumLayers == num_paints + 1 - 255
 
 
 def test_split_color_glyphs_by_version():
@@ -1001,3 +1093,130 @@ class BuildCOLRTest(object):
         assert hasattr(colr, "table")
         assert isinstance(colr.table, ot.COLR)
         assert colr.table.VarStore is None
+
+
+class TrickyRadialGradientTest:
+    @staticmethod
+    def circle_inside_circle(c0, r0, c1, r1, rounded=False):
+        if rounded:
+            return Circle(c0, r0).round().inside(Circle(c1, r1).round())
+        else:
+            return Circle(c0, r0).inside(Circle(c1, r1))
+
+    def round_start_circle(self, c0, r0, c1, r1, inside=True):
+        assert self.circle_inside_circle(c0, r0, c1, r1) is inside
+        assert self.circle_inside_circle(c0, r0, c1, r1, rounded=True) is not inside
+        r = round_start_circle_stable_containment(c0, r0, c1, r1)
+        assert (
+            self.circle_inside_circle(r.centre, r.radius, c1, r1, rounded=True)
+            is inside
+        )
+        return r.centre, r.radius
+
+    def test_noto_emoji_mosquito_u1f99f(self):
+        # https://github.com/googlefonts/picosvg/issues/158
+        c0 = (385.23508, 70.56727999999998)
+        r0 = 0
+        c1 = (642.99108, 104.70327999999995)
+        r1 = 260.0072
+        assert self.round_start_circle(c0, r0, c1, r1, inside=True) == ((386, 71), 0)
+
+    @pytest.mark.parametrize(
+        "c0, r0, c1, r1, inside, expected",
+        [
+            # inside before round, outside after round
+            ((1.4, 0), 0, (2.6, 0), 1.3, True, ((2, 0), 0)),
+            ((1, 0), 0.6, (2.8, 0), 2.45, True, ((2, 0), 1)),
+            ((6.49, 6.49), 0, (0.49, 0.49), 8.49, True, ((5, 5), 0)),
+            # outside before round, inside after round
+            ((0, 0), 0, (2, 0), 1.5, False, ((-1, 0), 0)),
+            ((0, -0.5), 0, (0, -2.5), 1.5, False, ((0, 1), 0)),
+            # the following ones require two nudges to round correctly
+            ((0.5, 0), 0, (9.4, 0), 8.8, False, ((-1, 0), 0)),
+            ((1.5, 1.5), 0, (0.49, 0.49), 1.49, True, ((0, 0), 0)),
+            # limit case when circle almost exactly overlap
+            ((0.5000001, 0), 0.5000001, (0.499999, 0), 0.4999999, True, ((0, 0), 0)),
+            # concentrical circles, r0 > r1
+            ((0, 0), 1.49, (0, 0), 1, False, ((0, 0), 2)),
+        ],
+    )
+    def test_nudge_start_circle_position(self, c0, r0, c1, r1, inside, expected):
+        assert self.round_start_circle(c0, r0, c1, r1, inside) == expected
+
+
+@pytest.mark.parametrize(
+    "lst, n, expected",
+    [
+        ([0], 2, [0]),
+        ([0, 1], 2, [0, 1]),
+        ([0, 1, 2], 2, [[0, 1], 2]),
+        ([0, 1, 2], 3, [0, 1, 2]),
+        ([0, 1, 2, 3], 2, [[0, 1], [2, 3]]),
+        ([0, 1, 2, 3], 3, [[0, 1, 2], 3]),
+        ([0, 1, 2, 3, 4], 3, [[0, 1, 2], 3, 4]),
+        ([0, 1, 2, 3, 4, 5], 3, [[0, 1, 2], [3, 4, 5]]),
+        (list(range(7)), 3, [[0, 1, 2], [3, 4, 5], 6]),
+        (list(range(8)), 3, [[0, 1, 2], [3, 4, 5], [6, 7]]),
+        (list(range(9)), 3, [[0, 1, 2], [3, 4, 5], [6, 7, 8]]),
+        (list(range(10)), 3, [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], 9]),
+        (list(range(11)), 3, [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], 9, 10]),
+        (list(range(12)), 3, [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], [9, 10, 11]]),
+        (list(range(13)), 3, [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], [9, 10, 11], 12]),
+        (
+            list(range(14)),
+            3,
+            [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], [[9, 10, 11], 12, 13]],
+        ),
+        (
+            list(range(15)),
+            3,
+            [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], [9, 10, 11], [12, 13, 14]],
+        ),
+        (
+            list(range(16)),
+            3,
+            [[[0, 1, 2], [3, 4, 5], [6, 7, 8]], [[9, 10, 11], [12, 13, 14], 15]],
+        ),
+        (
+            list(range(23)),
+            3,
+            [
+                [[0, 1, 2], [3, 4, 5], [6, 7, 8]],
+                [[9, 10, 11], [12, 13, 14], [15, 16, 17]],
+                [[18, 19, 20], 21, 22],
+            ],
+        ),
+        (
+            list(range(27)),
+            3,
+            [
+                [[0, 1, 2], [3, 4, 5], [6, 7, 8]],
+                [[9, 10, 11], [12, 13, 14], [15, 16, 17]],
+                [[18, 19, 20], [21, 22, 23], [24, 25, 26]],
+            ],
+        ),
+        (
+            list(range(28)),
+            3,
+            [
+                [
+                    [[0, 1, 2], [3, 4, 5], [6, 7, 8]],
+                    [[9, 10, 11], [12, 13, 14], [15, 16, 17]],
+                    [[18, 19, 20], [21, 22, 23], [24, 25, 26]],
+                ],
+                27,
+            ],
+        ),
+        (list(range(257)), 256, [list(range(256)), 256]),
+        (list(range(258)), 256, [list(range(256)), 256, 257]),
+        (list(range(512)), 256, [list(range(256)), list(range(256, 512))]),
+        (list(range(512 + 1)), 256, [list(range(256)), list(range(256, 512)), 512]),
+        (
+            list(range(256 ** 2)),
+            256,
+            [list(range(k * 256, k * 256 + 256)) for k in range(256)],
+        ),
+    ],
+)
+def test_build_n_ary_tree(lst, n, expected):
+    assert _build_n_ary_tree(lst, n) == expected

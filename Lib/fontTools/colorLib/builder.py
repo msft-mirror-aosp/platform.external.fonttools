@@ -6,6 +6,7 @@ import collections
 import copy
 import enum
 from functools import partial
+from math import ceil, log
 from typing import (
     Any,
     Dict,
@@ -34,6 +35,7 @@ from fontTools.ttLib.tables.otTables import (
     VariableInt,
 )
 from .errors import ColorLibError
+from .geometry import round_start_circle_stable_containment
 
 
 # TODO move type aliases to colorLib.types?
@@ -328,9 +330,9 @@ def _split_color_glyphs_by_version(
 
 def _to_variable_value(
     value: _ScalarInput,
-    minValue: _Number,
-    maxValue: _Number,
-    cls: Type[VariableValue],
+    cls: Type[VariableValue] = VariableFloat,
+    minValue: Optional[_Number] = None,
+    maxValue: Optional[_Number] = None,
 ) -> VariableValue:
     if not isinstance(value, cls):
         try:
@@ -339,9 +341,9 @@ def _to_variable_value(
             value = cls(value)
         else:
             value = cls._make(it)
-    if value.value < minValue:
+    if minValue is not None and value.value < minValue:
         raise OverflowError(f"{cls.__name__}: {value.value} < {minValue}")
-    if value.value > maxValue:
+    if maxValue is not None and value.value > maxValue:
         raise OverflowError(f"{cls.__name__}: {value.value} < {maxValue}")
     return value
 
@@ -436,20 +438,6 @@ def _to_color_line(obj):
     raise TypeError(obj)
 
 
-def _as_tuple(obj) -> Tuple[Any, ...]:
-    # start simple, who even cares about cyclic graphs or interesting field types
-    def _tuple_safe(value):
-        if isinstance(value, enum.Enum):
-            return value
-        elif hasattr(value, "__dict__"):
-            return tuple((k, _tuple_safe(v)) for k, v in value.__dict__.items())
-        elif isinstance(value, collections.abc.MutableSequence):
-            return tuple(_tuple_safe(e) for e in value)
-        return value
-
-    return tuple(_tuple_safe(obj))
-
-
 def _reuse_ranges(num_layers: int) -> Generator[Tuple[int, int], None, None]:
     # TODO feels like something itertools might have already
     for lbound in range(num_layers):
@@ -465,11 +453,40 @@ class LayerV1ListBuilder:
     slices: List[ot.Paint]
     layers: List[ot.Paint]
     reusePool: Mapping[Tuple[Any, ...], int]
+    tuples: Mapping[int, Tuple[Any, ...]]
+    keepAlive: List[ot.Paint]  # we need id to remain valid
 
     def __init__(self):
         self.slices = []
         self.layers = []
         self.reusePool = {}
+        self.tuples = {}
+        self.keepAlive = []
+
+    def _paint_tuple(self, paint: ot.Paint):
+        # start simple, who even cares about cyclic graphs or interesting field types
+        def _tuple_safe(value):
+            if isinstance(value, enum.Enum):
+                return value
+            elif hasattr(value, "__dict__"):
+                return tuple(
+                    (k, _tuple_safe(v)) for k, v in sorted(value.__dict__.items())
+                )
+            elif isinstance(value, collections.abc.MutableSequence):
+                return tuple(_tuple_safe(e) for e in value)
+            return value
+
+        # Cache the tuples for individual Paint instead of the whole sequence
+        # because the seq could be a transient slice
+        result = self.tuples.get(id(paint), None)
+        if result is None:
+            result = _tuple_safe(paint)
+            self.tuples[id(paint)] = result
+            self.keepAlive.append(paint)
+        return result
+
+    def _as_tuple(self, paints: Sequence[ot.Paint]) -> Tuple[Any, ...]:
+        return tuple(self._paint_tuple(p) for p in paints)
 
     def buildPaintSolid(
         self, paletteIndex: int, alpha: _ScalarInput = _DEFAULT_ALPHA
@@ -511,7 +528,21 @@ class LayerV1ListBuilder:
         ot_paint.Format = int(ot.Paint.Format.PaintRadialGradient)
         ot_paint.ColorLine = _to_color_line(colorLine)
 
-        for i, (x, y), r in [(0, c0, r0), (1, c1, r1)]:
+        # normalize input types (which may or may not specify a varIdx)
+        x0, y0 = _to_variable_value(c0[0]), _to_variable_value(c0[1])
+        r0 = _to_variable_value(r0)
+        x1, y1 = _to_variable_value(c1[0]), _to_variable_value(c1[1])
+        r1 = _to_variable_value(r1)
+
+        # avoid abrupt change after rounding when c0 is near c1's perimeter
+        c = round_start_circle_stable_containment(
+            (x0.value, y0.value), r0.value, (x1.value, y1.value), r1.value
+        )
+        x0, y0 = x0._replace(value=c.centre[0]), y0._replace(value=c.centre[1])
+        r0 = r0._replace(value=c.radius)
+
+        for i, (x, y, r) in enumerate(((x0, y0, r0), (x1, y1, r1))):
+            # rounding happens here as floats are converted to integers
             setattr(ot_paint, f"x{i}", _to_variable_int16(x))
             setattr(ot_paint, f"y{i}", _to_variable_int16(y))
             setattr(ot_paint, f"r{i}", _to_variable_uint16(r))
@@ -542,6 +573,48 @@ class LayerV1ListBuilder:
         ot_paint.Paint = self.buildPaint(paint)
         return ot_paint
 
+    def buildPaintTranslate(
+        self, paint: _PaintInput, dx: _ScalarInput, dy: _ScalarInput
+    ):
+        ot_paint = ot.Paint()
+        ot_paint.Format = int(ot.Paint.Format.PaintTranslate)
+        ot_paint.Paint = self.buildPaint(paint)
+        ot_paint.dx = _to_variable_f16dot16_float(dx)
+        ot_paint.dy = _to_variable_f16dot16_float(dy)
+        return ot_paint
+
+    def buildPaintRotate(
+        self,
+        paint: _PaintInput,
+        angle: _ScalarInput,
+        centerX: _ScalarInput,
+        centerY: _ScalarInput,
+    ) -> ot.Paint:
+        ot_paint = ot.Paint()
+        ot_paint.Format = int(ot.Paint.Format.PaintRotate)
+        ot_paint.Paint = self.buildPaint(paint)
+        ot_paint.angle = _to_variable_f16dot16_float(angle)
+        ot_paint.centerX = _to_variable_f16dot16_float(centerX)
+        ot_paint.centerY = _to_variable_f16dot16_float(centerY)
+        return ot_paint
+
+    def buildPaintSkew(
+        self,
+        paint: _PaintInput,
+        xSkewAngle: _ScalarInput,
+        ySkewAngle: _ScalarInput,
+        centerX: _ScalarInput,
+        centerY: _ScalarInput,
+    ) -> ot.Paint:
+        ot_paint = ot.Paint()
+        ot_paint.Format = int(ot.Paint.Format.PaintSkew)
+        ot_paint.Paint = self.buildPaint(paint)
+        ot_paint.xSkewAngle = _to_variable_f16dot16_float(xSkewAngle)
+        ot_paint.ySkewAngle = _to_variable_f16dot16_float(ySkewAngle)
+        ot_paint.centerX = _to_variable_f16dot16_float(centerX)
+        ot_paint.centerY = _to_variable_f16dot16_float(centerY)
+        return ot_paint
+
     def buildPaintComposite(
         self,
         mode: _CompositeInput,
@@ -560,7 +633,10 @@ class LayerV1ListBuilder:
         ot_paint.Format = int(ot.Paint.Format.PaintColrLayers)
         self.slices.append(ot_paint)
 
-        paints = [self.buildPaint(p) for p in paints]
+        paints = [
+            self.buildPaint(p)
+            for p in _build_n_ary_tree(paints, n=MAX_PAINT_COLR_LAYER_COUNT)
+        ]
 
         # Look for reuse, with preference to longer sequences
         found_reuse = True
@@ -573,7 +649,9 @@ class LayerV1ListBuilder:
                 reverse=True,
             )
             for lbound, ubound in ranges:
-                reuse_lbound = self.reusePool.get(_as_tuple(paints[lbound:ubound]), -1)
+                reuse_lbound = self.reusePool.get(
+                    self._as_tuple(paints[lbound:ubound]), -1
+                )
                 if reuse_lbound == -1:
                     continue
                 new_slice = ot.Paint()
@@ -590,7 +668,7 @@ class LayerV1ListBuilder:
 
         # Register our parts for reuse
         for lbound, ubound in _reuse_ranges(len(paints)):
-            self.reusePool[_as_tuple(paints[lbound:ubound])] = (
+            self.reusePool[self._as_tuple(paints[lbound:ubound])] = (
                 lbound + ot_paint.FirstLayerIndex
             )
 
@@ -702,3 +780,45 @@ def buildColrV1(
     glyphs.BaseGlyphCount = len(baseGlyphs)
     glyphs.BaseGlyphV1Record = baseGlyphs
     return (layers, glyphs)
+
+
+def _build_n_ary_tree(leaves, n):
+    """Build N-ary tree from sequence of leaf nodes.
+
+    Return a list of lists where each non-leaf node is a list containing
+    max n nodes.
+    """
+    if not leaves:
+        return []
+
+    assert n > 1
+
+    depth = ceil(log(len(leaves), n))
+
+    if depth <= 1:
+        return list(leaves)
+
+    # Fully populate complete subtrees of root until we have enough leaves left
+    root = []
+    unassigned = None
+    full_step = n ** (depth - 1)
+    for i in range(0, len(leaves), full_step):
+        subtree = leaves[i : i + full_step]
+        if len(subtree) < full_step:
+            unassigned = subtree
+            break
+        while len(subtree) > n:
+            subtree = [subtree[k : k + n] for k in range(0, len(subtree), n)]
+        root.append(subtree)
+
+    if unassigned:
+        # Recurse to fill the last subtree, which is the only partially populated one
+        subtree = _build_n_ary_tree(unassigned, n)
+        if len(subtree) <= n - len(root):
+            # replace last subtree with its children if they can still fit
+            root.extend(subtree)
+        else:
+            root.append(subtree)
+        assert len(root) <= n
+
+    return root
