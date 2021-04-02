@@ -1,11 +1,12 @@
 from fontTools.misc import xmlWriter
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import Tag, byteord, tostr
 from fontTools.misc.loggingTools import deprecateArgument
 from fontTools.ttLib import TTLibError
 from fontTools.ttLib.sfnt import SFNTReader, SFNTWriter
+from io import BytesIO, StringIO
 import os
 import logging
-import itertools
+import traceback
 
 log = logging.getLogger(__name__)
 
@@ -161,22 +162,17 @@ class TTFont(object):
 			if self.lazy and self.reader.file.name == file:
 				raise TTLibError(
 					"Can't overwrite TTFont when 'lazy' attribute is True")
-			closeStream = True
-			file = open(file, "wb")
+			createStream = True
 		else:
 			# assume "file" is a writable file object
-			closeStream = False
+			createStream = False
 
 		tmp = BytesIO()
 
 		writer_reordersTables = self._save(tmp)
 
-		if (reorderTables is None or writer_reordersTables or
+		if not (reorderTables is None or writer_reordersTables or
 				(reorderTables is False and self.reader is None)):
-			# don't reorder tables and save as is
-			file.write(tmp.getvalue())
-			tmp.close()
-		else:
 			if reorderTables is False:
 				# sort tables using the original font's order
 				tableOrder = list(self.reader.keys())
@@ -186,12 +182,17 @@ class TTFont(object):
 			tmp.flush()
 			tmp2 = BytesIO()
 			reorderFontTables(tmp, tmp2, tableOrder)
-			file.write(tmp2.getvalue())
 			tmp.close()
-			tmp2.close()
+			tmp = tmp2
 
-		if closeStream:
-			file.close()
+		if createStream:
+			# "file" is a path
+			with open(file, "wb") as file:
+				file.write(tmp.getvalue())
+		else:
+			file.write(tmp.getvalue())
+
+		tmp.close()
 
 	def _save(self, file, tableCache=None):
 		"""Internal function, to be shared by save() and TTCollection.save()"""
@@ -368,45 +369,46 @@ class TTFont(object):
 
 	def __getitem__(self, tag):
 		tag = Tag(tag)
-		try:
-			return self.tables[tag]
-		except KeyError:
+		table = self.tables.get(tag)
+		if table is None:
 			if tag == "GlyphOrder":
 				table = GlyphOrder(tag)
 				self.tables[tag] = table
-				return table
-			if self.reader is not None:
-				import traceback
-				log.debug("Reading '%s' table from disk", tag)
-				data = self.reader[tag]
-				if self._tableCache is not None:
-					table = self._tableCache.get((Tag(tag), data))
-					if table is not None:
-						return table
-				tableClass = getTableClass(tag)
-				table = tableClass(tag)
-				self.tables[tag] = table
-				log.debug("Decompiling '%s' table", tag)
-				try:
-					table.decompile(data, self)
-				except:
-					if not self.ignoreDecompileErrors:
-						raise
-					# fall back to DefaultTable, retaining the binary table data
-					log.exception(
-						"An exception occurred during the decompilation of the '%s' table", tag)
-					from .tables.DefaultTable import DefaultTable
-					file = StringIO()
-					traceback.print_exc(file=file)
-					table = DefaultTable(tag)
-					table.ERROR = file.getvalue()
-					self.tables[tag] = table
-					table.decompile(data, self)
-				if self._tableCache is not None:
-					self._tableCache[(Tag(tag), data)] = table
-				return table
+			elif self.reader is not None:
+				table = self._readTable(tag)
 			else:
 				raise KeyError("'%s' table not found" % tag)
+		return table
+
+	def _readTable(self, tag):
+		log.debug("Reading '%s' table from disk", tag)
+		data = self.reader[tag]
+		if self._tableCache is not None:
+			table = self._tableCache.get((tag, data))
+			if table is not None:
+				return table
+		tableClass = getTableClass(tag)
+		table = tableClass(tag)
+		self.tables[tag] = table
+		log.debug("Decompiling '%s' table", tag)
+		try:
+			table.decompile(data, self)
+		except Exception:
+			if not self.ignoreDecompileErrors:
+				raise
+			# fall back to DefaultTable, retaining the binary table data
+			log.exception(
+				"An exception occurred during the decompilation of the '%s' table", tag)
+			from .tables.DefaultTable import DefaultTable
+			file = StringIO()
+			traceback.print_exc(file=file)
+			table = DefaultTable(tag)
+			table.ERROR = file.getvalue()
+			self.tables[tag] = table
+			table.decompile(data, self)
+		if self._tableCache is not None:
+			self._tableCache[(tag, data)] = table
+		return table
 
 	def __setitem__(self, tag, table):
 		self.tables[Tag(tag)] = table
@@ -636,7 +638,7 @@ class TTFont(object):
 				log.debug("reusing '%s' table", tag)
 				writer.setEntry(tag, entry)
 				return
-		log.debug("writing '%s' table to disk", tag)
+		log.debug("Writing '%s' table to disk", tag)
 		writer[tag] = tabledata
 		if tableCache is not None:
 			tableCache[(Tag(tag), tabledata)] = writer[tag]
@@ -646,7 +648,7 @@ class TTFont(object):
 		"""
 		tag = Tag(tag)
 		if self.isLoaded(tag):
-			log.debug("compiling '%s' table", tag)
+			log.debug("Compiling '%s' table", tag)
 			return self.tables[tag].compile(self)
 		elif self.reader and tag in self.reader:
 			log.debug("Reading '%s' table from disk", tag)

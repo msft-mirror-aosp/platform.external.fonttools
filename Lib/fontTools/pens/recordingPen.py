@@ -1,5 +1,4 @@
 """Pen recording operations that can be accessed or replayed."""
-from fontTools.misc.py23 import *
 from fontTools.pens.basePen import AbstractPen, DecomposingPen
 from fontTools.pens.pointPen import AbstractPointPen
 
@@ -141,7 +140,6 @@ class RecordingPointPen(AbstractPointPen):
 
 
 if __name__ == "__main__":
-	from fontTools.pens.basePen import _TestPen
 	pen = RecordingPen()
 	pen.moveTo((0, 0))
 	pen.lineTo((0, 100))
