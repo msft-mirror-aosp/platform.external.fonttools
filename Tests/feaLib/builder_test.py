@@ -1,4 +1,3 @@
-from fontTools.misc.py23 import *
 from fontTools.misc.loggingTools import CapturingLogHandler
 from fontTools.feaLib.builder import Builder, addOpenTypeFeatures, \
         addOpenTypeFeaturesFromString
@@ -8,7 +7,9 @@ from fontTools.feaLib.parser import Parser
 from fontTools.feaLib import ast
 from fontTools.feaLib.lexer import Lexer
 import difflib
+from io import StringIO
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -73,7 +74,7 @@ class BuilderTest(unittest.TestCase):
         LigatureSubtable AlternateSubtable MultipleSubstSubtable 
         SingleSubstSubtable aalt_chain_contextual_subst AlternateChained 
         MultipleLookupsPerGlyph MultipleLookupsPerGlyph2 GSUB_6_formats
-        GSUB_5_formats delete_glyph
+        GSUB_5_formats delete_glyph STAT_test STAT_test_elidedFallbackNameID
     """.split()
 
     def __init__(self, methodName):
@@ -118,7 +119,7 @@ class BuilderTest(unittest.TestCase):
     def expect_ttx(self, font, expected_ttx, replace=None):
         path = self.temp_path(suffix=".ttx")
         font.saveXML(path, tables=['head', 'name', 'BASE', 'GDEF', 'GSUB',
-                                   'GPOS', 'OS/2', 'hhea', 'vhea'])
+                                   'GPOS', 'OS/2', 'STAT', 'hhea', 'vhea'])
         actual = self.read_ttx(path)
         expected = self.read_ttx(expected_ttx)
         if replace:
@@ -141,10 +142,15 @@ class BuilderTest(unittest.TestCase):
         feapath = self.getpath("%s.fea" % name)
         addOpenTypeFeatures(font, feapath)
         self.expect_ttx(font, self.getpath("%s.ttx" % name))
-        # Make sure we can produce binary OpenType tables, not just XML.
+        # Check that:
+        # 1) tables do compile (only G* tables as long as we have a mock font)
+        # 2) dumping after save-reload yields the same TTX dump as before
         for tag in ('GDEF', 'GSUB', 'GPOS'):
             if tag in font:
-                font[tag].compile(font)
+                data = font[tag].compile(font)
+                font[tag].decompile(data, font)
+        self.expect_ttx(font, self.getpath("%s.ttx" % name))
+        # Optionally check a debug dump.
         debugttx = self.getpath("%s-debug.ttx" % name)
         if os.path.exists(debugttx):
             addOpenTypeFeatures(font, feapath, debug=True)
@@ -463,6 +469,201 @@ class BuilderTest(unittest.TestCase):
             "} test;"
         )
 
+    def test_STAT_elidedfallbackname_already_defined(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'ElidedFallbackName is already set.',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    ElidedFallbackNameID 256;'
+            '} STAT;')
+
+    def test_STAT_elidedfallbackname_set_twice(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'ElidedFallbackName is already set.',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    ElidedFallbackName { name "Italic"; };'
+            '} STAT;')
+
+    def test_STAT_elidedfallbacknameID_already_defined(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'ElidedFallbackNameID is already set.',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackNameID 256;'
+            '    ElidedFallbackName { name "Roman"; };'
+            '} STAT;')
+
+    def test_STAT_elidedfallbacknameID_not_in_name_table(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'ElidedFallbackNameID 256 points to a nameID that does not '
+            'exist in the "name" table',
+            self.build,
+            'table name {'
+            '   nameid 257 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackNameID 256;'
+            '    DesignAxis opsz 1 { name "Optical Size"; };'
+            '} STAT;')
+
+    def test_STAT_design_axis_name(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'Expected "name"',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    DesignAxis opsz 0 { badtag "Optical Size"; };'
+            '} STAT;')
+
+    def test_STAT_duplicate_design_axis_name(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'DesignAxis already defined for tag "opsz".',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    DesignAxis opsz 0 { name "Optical Size"; };'
+            '    DesignAxis opsz 1 { name "Optical Size"; };'
+            '} STAT;')
+
+    def test_STAT_design_axis_duplicate_order(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            "DesignAxis already defined for axis number 0.",
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    DesignAxis opsz 0 { name "Optical Size"; };'
+            '    DesignAxis wdth 0 { name "Width"; };'
+            '    AxisValue {'
+            '         location opsz 8;'
+            '         location wdth 400;'
+            '         name "Caption";'
+            '     };'
+            '} STAT;')
+
+    def test_STAT_undefined_tag(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'DesignAxis not defined for wdth.',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    DesignAxis opsz 0 { name "Optical Size"; };'
+            '    AxisValue { '
+            '        location wdth 125; '
+            '        name "Wide"; '
+            '    };'
+            '} STAT;')
+
+    def test_STAT_axis_value_format4(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'Axis tag wdth already defined.',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    DesignAxis opsz 0 { name "Optical Size"; };'
+            '    DesignAxis wdth 1 { name "Width"; };'
+            '    DesignAxis wght 2 { name "Weight"; };'
+            '    AxisValue { '
+            '        location opsz 8; '
+            '        location wdth 125; '
+            '        location wdth 125; '
+            '        location wght 500; '
+            '        name "Caption Medium Wide"; '
+            '    };'
+            '} STAT;')
+
+    def test_STAT_duplicate_axis_value_record(self):
+        # Test for Duplicate AxisValueRecords even when the definition order
+        # is different.
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'An AxisValueRecord with these values is already defined.',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; };'
+            '    DesignAxis opsz 0 { name "Optical Size"; };'
+            '    DesignAxis wdth 1 { name "Width"; };'
+            '    AxisValue {'
+            '         location opsz 8;'
+            '         location wdth 400;'
+            '         name "Caption";'
+            '     };'
+            '    AxisValue {'
+            '         location wdth 400;'
+            '         location opsz 8;'
+            '         name "Caption";'
+            '     };'
+            '} STAT;')
+
+    def test_STAT_axis_value_missing_location(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'Expected "Axis location"',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName {   name "Roman"; '
+            '};'
+            '    DesignAxis opsz 0 { name "Optical Size"; };'
+            '    AxisValue { '
+            '        name "Wide"; '
+            '    };'
+            '} STAT;')
+
+    def test_STAT_invalid_location_tag(self):
+        self.assertRaisesRegex(
+            FeatureLibError,
+            'Tags cannot be longer than 4 characters',
+            self.build,
+            'table name {'
+            '   nameid 256 "Roman"; '
+            '} name;'
+            'table STAT {'
+            '    ElidedFallbackName { name "Roman"; '
+            '                         name 3 1 0x0411 "ローマン"; }; '
+            '    DesignAxis width 0 { name "Width"; };'
+            '} STAT;')
+
     def test_extensions(self):
         class ast_BaseClass(ast.MarkClass):
             def asFea(self, indent=""):
@@ -574,7 +775,7 @@ class BuilderTest(unittest.TestCase):
         self.assertRaises(NotImplementedError, self.build, "", tables={"FOO"})
 
     def test_build_pre_parsed_ast_featurefile(self):
-        f = UnicodeIO("feature liga {sub f i by f_i;} liga;")
+        f = StringIO("feature liga {sub f i by f_i;} liga;")
         tree = Parser(f).parse()
         font = makeTTFont()
         addOpenTypeFeatures(font, tree)
