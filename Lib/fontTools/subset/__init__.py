@@ -2,14 +2,13 @@
 #
 # Google Author(s): Behdad Esfahbod
 
-from fontTools.misc.fixedTools import otRound
+from fontTools.misc.roundTools import otRound
 from fontTools import ttLib
 from fontTools.ttLib.tables import otTables
 from fontTools.otlLib.maxContextCalc import maxCtxFont
 from fontTools.pens.basePen import NullPen
 from fontTools.misc.loggingTools import Timer
 from fontTools.subset.cff import *
-from fontTools.varLib import varStore
 import sys
 import struct
 import array
@@ -428,13 +427,14 @@ def intersect_class(self, glyphs, klass):
 		     if v == klass and g in glyphs)
 
 @_add_method(otTables.ClassDef)
-def subset(self, glyphs, remap=False):
+def subset(self, glyphs, remap=False, useClass0=True):
 	"""Returns ascending list of remaining classes."""
 	self.classDefs = {g:v for g,v in self.classDefs.items() if g in glyphs}
 	# Note: while class 0 has the special meaning of "not matched",
 	# if no glyph will ever /not match/, we can optimize class 0 out too.
+	# Only do this if allowed.
 	indices = _uniq_sort(
-		 ([0] if any(g not in self.classDefs for g in glyphs) else []) +
+		 ([0] if ((not useClass0) or any(g not in self.classDefs for g in glyphs)) else []) +
 			list(self.classDefs.values()))
 	if remap:
 		self.remap(indices)
@@ -570,15 +570,16 @@ def subset_glyphs(self, s):
 		self.PairSetCount = len(self.PairSet)
 		return bool(self.PairSetCount)
 	elif self.Format == 2:
-		class1_map = [c for c in self.ClassDef1.subset(s.glyphs, remap=True) if c < self.Class1Count]
-		class2_map = [c for c in self.ClassDef2.subset(s.glyphs, remap=True) if c < self.Class2Count]
+		class1_map = [c for c in self.ClassDef1.subset(s.glyphs.intersection(self.Coverage.glyphs), remap=True) if c < self.Class1Count]
+		class2_map = [c for c in self.ClassDef2.subset(s.glyphs, remap=True, useClass0=False) if c < self.Class2Count]
 		self.Class1Record = [self.Class1Record[i] for i in class1_map]
 		for c in self.Class1Record:
 			c.Class2Record = [c.Class2Record[i] for i in class2_map]
 		self.Class1Count = len(class1_map)
 		self.Class2Count = len(class2_map)
+		# If only Class2 0 left, no need to keep anything.
 		return bool(self.Class1Count and
-					self.Class2Count and
+					(self.Class2Count > 1) and
 					self.Coverage.subset(s.glyphs))
 	else:
 		assert 0, "unknown format: %s" % self.Format
@@ -1877,7 +1878,7 @@ def subset_glyphs(self, s):
 		table.RsbMap.mapping = _dict_subset(table.RsbMap.mapping, s.glyphs)
 		used.update(table.RsbMap.mapping.values())
 
-	varidx_map = varStore.VarStore_subset_varidxes(table.VarStore, used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
+	varidx_map = table.VarStore.subset_varidxes(used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
 
 	if table.AdvWidthMap:
 		table.AdvWidthMap.mapping = _remap_index_map(s, varidx_map, table.AdvWidthMap)
@@ -1915,7 +1916,7 @@ def subset_glyphs(self, s):
 		table.VOrgMap.mapping = _dict_subset(table.VOrgMap.mapping, s.glyphs)
 		used.update(table.VOrgMap.mapping.values())
 
-	varidx_map = varStore.VarStore_subset_varidxes(table.VarStore, used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
+	varidx_map = table.VarStore.subset_varidxes(used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
 
 	if table.AdvHeightMap:
 		table.AdvHeightMap.mapping = _remap_index_map(s, varidx_map, table.AdvHeightMap)

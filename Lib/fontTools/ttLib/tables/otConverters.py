@@ -1,4 +1,4 @@
-from fontTools.misc.py23 import *
+from fontTools.misc.py23 import bytesjoin, tobytes, tostr
 from fontTools.misc.fixedTools import (
 	fixedToFloat as fi2fl,
 	floatToFixed as fl2fi,
@@ -338,6 +338,18 @@ class NameID(UShort):
 					log.warning("name id %d missing from name table" % value)
 		xmlWriter.newline()
 
+class STATFlags(UShort):
+	def xmlWrite(self, xmlWriter, font, value, name, attrs):
+		xmlWriter.simpletag(name, attrs + [("value", value)])
+		flags = []
+		if value & 0x01:
+			flags.append("OlderSiblingFontAttribute")
+		if value & 0x02:
+			flags.append("ElidableAxisValueName")
+		if flags:
+			xmlWriter.write("  ")
+			xmlWriter.comment(" ".join(flags))
+		xmlWriter.newline()
 
 class FloatValue(SimpleValue):
 	@staticmethod
@@ -412,8 +424,8 @@ class Char64(SimpleValue):
 		zeroPos = data.find(b"\0")
 		if zeroPos >= 0:
 			data = data[:zeroPos]
-		s = tounicode(data, encoding="ascii", errors="replace")
-		if s != tounicode(data, encoding="ascii", errors="ignore"):
+		s = tostr(data, encoding="ascii", errors="replace")
+		if s != tostr(data, encoding="ascii", errors="ignore"):
 			log.warning('replaced non-ASCII characters in "%s"' %
 			            s)
 		return s
@@ -1745,7 +1757,6 @@ converterMapping = {
 	"int8":		Int8,
 	"int16":	Short,
 	"uint8":	UInt8,
-	"uint8":	UInt8,
 	"uint16":	UShort,
 	"uint24":	UInt24,
 	"uint32":	ULong,
@@ -1770,6 +1781,7 @@ converterMapping = {
 	"LookupFlag": LookupFlag,
 	"ExtendMode": ExtendMode,
 	"CompositeMode": CompositeMode,
+	"STATFlags": STATFlags,
 
 	# AAT
 	"CIDGlyphMap":	CIDGlyphMap,
