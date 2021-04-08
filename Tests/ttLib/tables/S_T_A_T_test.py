@@ -1,4 +1,3 @@
-from fontTools.misc.py23 import *
 from fontTools.misc.testTools import FakeFont, getXML, parseXML
 from fontTools.misc.textTools import deHexStr
 from fontTools.ttLib import newTable
@@ -147,7 +146,7 @@ STAT_XML_AXIS_VALUE_FORMAT3 = [
     '<AxisValueArray>',
     '  <AxisValue index="0" Format="3">',
     '    <AxisIndex value="0"/>',
-    '    <Flags value="2"/>',
+    '    <Flags value="2"/>  <!-- ElidableAxisValueName -->',
     '    <ValueNameID value="2"/>',
     '    <Value value="400.0"/>',
     '    <LinkedValue value="700.0"/>',
@@ -191,7 +190,7 @@ STAT_XML_VERSION_1_1 = [
     '<AxisValueArray>',
     '  <AxisValue index="0" Format="3">',
     '    <AxisIndex value="0"/>',
-    '    <Flags value="2"/>',
+    '    <Flags value="2"/>  <!-- ElidableAxisValueName -->',
     '    <ValueNameID value="2"/>',
     '    <Value value="400.0"/>',
     '    <LinkedValue value="700.0"/>',
