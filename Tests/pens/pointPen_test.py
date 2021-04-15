@@ -1,5 +1,3 @@
-from fontTools.misc.py23 import *
-from fontTools.misc.loggingTools import CapturingLogHandler
 import unittest
 
 from fontTools.pens.basePen import AbstractPen
@@ -43,7 +41,7 @@ def _reprKwargs(kwargs):
     items = []
     for key in sorted(kwargs):
         value = kwargs[key]
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             items.append("%s='%s'" % (key, value))
         else:
             items.append("%s=%s" % (key, value))
@@ -258,10 +256,10 @@ class TestSegmentToPointPen(unittest.TestCase):
         pen.closePath()
         self.assertEqual("beginPath() addPoint((10, 10), segmentType='line') "
                          "addPoint((10, 20)) addPoint((20, 20)) "
-                         "addPoint((20, 10), segmentType=qcurve) endPath()",
+                         "addPoint((20, 10), segmentType='qcurve') endPath()",
                          repr(tpen))
 
-    def test_quad(self):
+    def test_quad2(self):
         tpen = _TestPointPen()
         pen = SegmentToPointPen(tpen)
         pen.qCurveTo((10, 20), (20, 20), (20, 10), (10, 10), None)

@@ -36,26 +36,27 @@ Coordinates are usually expressed as (x, y) tuples, but generally any
 sequence of length 2 will do.
 """
 
-from fontTools.misc.py23 import *
+from typing import Tuple
+
 from fontTools.misc.loggingTools import LogMixin
 
 __all__ =  ["AbstractPen", "NullPen", "BasePen",
 			"decomposeSuperBezierSegment", "decomposeQuadraticSegment"]
 
 
-class AbstractPen(object):
+class AbstractPen:
 
-	def moveTo(self, pt):
+	def moveTo(self, pt: Tuple[float, float]) -> None:
 		"""Begin a new sub path, set the current point to 'pt'. You must
 		end each sub path with a call to pen.closePath() or pen.endPath().
 		"""
 		raise NotImplementedError
 
-	def lineTo(self, pt):
+	def lineTo(self, pt: Tuple[float, float]) -> None:
 		"""Draw a straight line from the current point to 'pt'."""
 		raise NotImplementedError
 
-	def curveTo(self, *points):
+	def curveTo(self, *points: Tuple[float, float]) -> None:
 		"""Draw a cubic bezier with an arbitrary number of control points.
 
 		The last point specified is on-curve, all others are off-curve
@@ -76,7 +77,7 @@ class AbstractPen(object):
 		"""
 		raise NotImplementedError
 
-	def qCurveTo(self, *points):
+	def qCurveTo(self, *points: Tuple[float, float]) -> None:
 		"""Draw a whole string of quadratic curve segments.
 
 		The last point specified is on-curve, all others are off-curve
@@ -93,19 +94,23 @@ class AbstractPen(object):
 		"""
 		raise NotImplementedError
 
-	def closePath(self):
+	def closePath(self) -> None:
 		"""Close the current sub path. You must call either pen.closePath()
 		or pen.endPath() after each sub path.
 		"""
 		pass
 
-	def endPath(self):
+	def endPath(self) -> None:
 		"""End the current sub path, but don't close it. You must call
 		either pen.closePath() or pen.endPath() after each sub path.
 		"""
 		pass
 
-	def addComponent(self, glyphName, transformation):
+	def addComponent(
+		self,
+		glyphName: str,
+		transformation: Tuple[float, float, float, float, float, float]
+	) -> None:
 		"""Add a sub glyph. The 'transformation' argument must be a 6-tuple
 		containing an affine transformation, or a Transform object from the
 		fontTools.misc.transform module. More precisely: it should be a
@@ -114,7 +119,7 @@ class AbstractPen(object):
 		raise NotImplementedError
 
 
-class NullPen(object):
+class NullPen(AbstractPen):
 
 	"""A pen that does nothing.
 	"""
