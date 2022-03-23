@@ -13,7 +13,6 @@ third_party {
     value: "https://github.com/fonttools/fonttools/archive/4.22.0.zip"
   }
   version: "4.22.0"
-  license_note: "contains OFL fonts"
   license_type: BY_EXCEPTION_ONLY
   last_upgrade_date {
     year: 2021
