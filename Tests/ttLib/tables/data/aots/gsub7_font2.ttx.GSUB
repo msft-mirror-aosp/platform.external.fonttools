@@ -35,13 +35,13 @@
         <!-- SubTableCount=2 -->
         <ExtensionSubst index="0" Format="1">
           <ExtensionLookupType value="1"/>
-          <SingleSubst>
+          <SingleSubst Format="1">
             <Substitution in="g18" out="g23"/>
           </SingleSubst>
         </ExtensionSubst>
         <ExtensionSubst index="1" Format="1">
           <ExtensionLookupType value="1"/>
-          <SingleSubst>
+          <SingleSubst Format="1">
             <Substitution in="g19" out="g29"/>
           </SingleSubst>
         </ExtensionSubst>

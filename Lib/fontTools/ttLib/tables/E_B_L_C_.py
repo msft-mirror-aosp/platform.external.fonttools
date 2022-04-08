@@ -1,4 +1,5 @@
-from fontTools.misc.py23 import bytesjoin
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from . import DefaultTable
 from fontTools.misc.textTools import safeEval
@@ -154,7 +155,7 @@ class table_E_B_L_C_(DefaultTable.DefaultTable):
 		# (2) Build each bitmapSizeTable.
 		# (3) Consolidate all the data into the main dataList in the correct order.
 
-		for _ in self.strikes:
+		for curStrike in self.strikes:
 			dataSize += sstruct.calcsize(bitmapSizeTableFormatPart1)
 			dataSize += len(('hori', 'vert')) * sstruct.calcsize(sbitLineMetricsFormat)
 			dataSize += sstruct.calcsize(bitmapSizeTableFormatPart2)
@@ -482,7 +483,7 @@ def _createOffsetArrayIndexSubTableMixin(formatStringForDataType):
 			dataList = [EblcIndexSubTable.compile(self, ttFont)]
 			dataList += [struct.pack(dataFormat, offsetValue) for offsetValue in offsetArray]
 			# Take care of any padding issues. Only occurs in format 3.
-			if offsetDataSize * len(offsetArray) % 4 != 0:
+			if offsetDataSize * len(dataList) % 4 != 0:
 				dataList.append(struct.pack(dataFormat, 0))
 			return bytesjoin(dataList)
 

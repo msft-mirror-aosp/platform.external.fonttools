@@ -1,4 +1,6 @@
-from fontTools.misc.py23 import byteord, tostr
+from __future__ import (
+    print_function, division, absolute_import, unicode_literals)
+from fontTools.misc.py23 import *
 
 import re
 from bisect import bisect_right
@@ -50,7 +52,7 @@ def script(char):
     'Latn'
     >>> script(",")
     'Zyyy'
-    >>> script(chr(0x10FFFF))
+    >>> script(unichr(0x10FFFF))
     'Zzzz'
     """
     code = byteord(char)
@@ -73,9 +75,9 @@ def script_extension(char):
 
     >>> script_extension("a") == {'Latn'}
     True
-    >>> script_extension(chr(0x060C)) == {'Rohg', 'Syrc', 'Yezi', 'Arab', 'Thaa'}
+    >>> script_extension(unichr(0x060C)) == {'Arab', 'Rohg', 'Syrc', 'Thaa'}
     True
-    >>> script_extension(chr(0x10FFFF)) == {'Zzzz'}
+    >>> script_extension(unichr(0x10FFFF)) == {'Zzzz'}
     True
     """
     code = byteord(char)
@@ -134,8 +136,10 @@ def script_code(script_name, default=KeyError):
         return default
 
 
-# The data on script direction is taken from CLDR 37:
-# https://github.com/unicode-org/cldr/blob/release-37/common/properties/scriptMetadata.txt
+# The data on script direction is taken from harfbuzz's "hb-common.cc":
+# https://goo.gl/X5FDXC
+# It matches the CLDR "scriptMetadata.txt as of January 2018:
+# http://unicode.org/repos/cldr/trunk/common/properties/scriptMetadata.txt
 RTL_SCRIPTS = {
     # Unicode-1.1 additions
     'Arab',  # Arabic
@@ -188,18 +192,6 @@ RTL_SCRIPTS = {
 
     # Unicode-9.0 additions
     'Adlm',  # Adlam
-
-    # Unicode-11.0 additions
-    'Rohg',  # Hanifi Rohingya
-    'Sogo',  # Old Sogdian
-    'Sogd',  # Sogdian
-
-    # Unicode-12.0 additions
-    'Elym',  # Elymaic
-
-    # Unicode-13.0 additions
-    'Chrs',  # Chorasmian
-    'Yezi',  # Yezidi
 }
 
 def script_horizontal_direction(script_code, default=KeyError):
@@ -219,9 +211,9 @@ def block(char):
 
     >>> block("a")
     'Basic Latin'
-    >>> block(chr(0x060C))
+    >>> block(unichr(0x060C))
     'Arabic'
-    >>> block(chr(0xEFFFF))
+    >>> block(unichr(0xEFFFF))
     'No_Block'
     """
     code = byteord(char)

@@ -4,7 +4,8 @@ tool to store its hinting source data.
 TSI1 contains the text of the glyph programs in the form of low-level assembly
 code, as well as the 'extra' programs 'fpgm', 'ppgm' (i.e. 'prep'), and 'cvt'.
 """
-from fontTools.misc.py23 import strjoin, tobytes, tostr
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from . import DefaultTable
 from fontTools.misc.loggingTools import LogMixin
 
@@ -68,7 +69,7 @@ class table_T_S_I__1(LogMixin, DefaultTable.DefaultTable):
 						"%r textLength (%d) must not be > 32768" % (name, textLength))
 				text = data[textOffset:textOffset+textLength]
 				assert len(text) == textLength
-				text = tostr(text, encoding='utf-8')
+				text = tounicode(text, encoding='utf-8')
 				if text:
 					programs[name] = text
 			if isExtra:

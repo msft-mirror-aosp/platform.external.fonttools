@@ -1,6 +1,8 @@
-from fontTools.misc.py23 import bytesjoin
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
+import operator
 import struct
 
 
@@ -83,7 +85,7 @@ class table_V_O_R_G_(DefaultTable.DefaultTable):
 		if name == "VOriginRecord":
 			vOriginRec = VOriginRecord()
 			for element in content:
-				if isinstance(element, str):
+				if isinstance(element, basestring):
 					continue
 				name, attrs, content = element
 				vOriginRec.fromXML(name, attrs, content, ttFont)

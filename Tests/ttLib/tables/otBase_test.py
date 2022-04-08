@@ -1,3 +1,5 @@
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc.textTools import deHexStr
 from fontTools.ttLib.tables.otBase import OTTableReader, OTTableWriter
 import unittest

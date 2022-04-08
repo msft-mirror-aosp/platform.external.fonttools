@@ -1,9 +1,9 @@
+.. highlight:: python
 
-#######
+=======
 glifLib
-#######
+=======
 
-.. automodule:: fontTools.ufoLib.glifLib
+.. automodule:: ufoLib.glifLib
    :inherited-members:
    :members:
-   :undoc-members:

@@ -1,15 +1,18 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import, unicode_literals
 import os
 import shutil
 import unittest
 import tempfile
 from io import open
+from fontTools.misc.py23 import unicode
 from fontTools.ufoLib import UFOReader, UFOWriter, UFOLibError
 from fontTools.ufoLib.glifLib import GlifLibError
 from fontTools.misc import plistlib
 from .testSupport import fontInfoVersion3
 
 
-class TestInfoObject: pass
+class TestInfoObject(object): pass
 
 
 # --------------
@@ -3940,26 +3943,6 @@ class UFO3WriteLayersTestCase(unittest.TestCase):
 		result = list(writer.getGlyphSet("layer 2", defaultLayer=False).keys())
 		self.assertEqual(expected, result)
 
-	def testGetGlyphSetNoContents(self):
-		self.makeUFO()
-		os.remove(os.path.join(self.ufoPath, "glyphs.layer 1", "contents.plist"))
-
-		reader = UFOReader(self.ufoPath, validate=True)
-		with self.assertRaises(GlifLibError):
-			reader.getGlyphSet("layer 1")
-
-		writer = UFOWriter(self.ufoPath, validate=True)
-		with self.assertRaises(GlifLibError):
-			writer.getGlyphSet("layer 1", defaultLayer=False, expectContentsFile=True)
-
-		# There's a separate code path for < v3 UFOs.
-		with open(os.path.join(self.ufoPath, "metainfo.plist"), "wb") as f:
-			plistlib.dump(dict(creator="test", formatVersion=2), f)
-		os.remove(os.path.join(self.ufoPath, "glyphs", "contents.plist"))
-		writer = UFOWriter(self.ufoPath, validate=True, formatVersion=2)
-		with self.assertRaises(GlifLibError):
-			writer.getGlyphSet(expectContentsFile=True)
-
 	# make a new font with two layers
 
 	def testNewFontOneLayer(self):
@@ -4125,14 +4108,16 @@ class UFO3WriteLayersTestCase(unittest.TestCase):
 		self.makeUFO()
 		writer = UFOWriter(self.ufoPath)
 		writer.deleteGlyphSet("public.default")
-		writer.writeLayerContents(["layer 1", "layer 2"])
 		# directories
 		path = os.path.join(self.ufoPath, "glyphs")
-		self.assertEqual(False, os.path.exists(path))
+		exists = os.path.exists(path)
+		self.assertEqual(False, exists)
 		path = os.path.join(self.ufoPath, "glyphs.layer 1")
-		self.assertEqual(True, os.path.exists(path))
+		exists = os.path.exists(path)
+		self.assertEqual(True, exists)
 		path = os.path.join(self.ufoPath, "glyphs.layer 2")
-		self.assertEqual(True, os.path.exists(path))
+		exists = os.path.exists(path)
+		self.assertEqual(True, exists)
 		# layer contents
 		path = os.path.join(self.ufoPath, "layercontents.plist")
 		with open(path, "rb") as f:
@@ -4142,7 +4127,7 @@ class UFO3WriteLayersTestCase(unittest.TestCase):
 
 	# remove unknown layer
 
-	def testRemoveDefaultLayer2(self):
+	def testRemoveDefaultLayer(self):
 		self.makeUFO()
 		writer = UFOWriter(self.ufoPath)
 		self.assertRaises(UFOLibError, writer.deleteGlyphSet, "does not exist")
@@ -4156,7 +4141,8 @@ class UFO3WriteLayersTestCase(unittest.TestCase):
 			]
 		)
 		writer = UFOWriter(self.ufoPath)
-		writer.writeLayerContents(["public.default", "layer 2", "layer 1"])
+		# if passed bytes string, it'll be decoded to ASCII unicode string
+		writer.writeLayerContents(["public.default", "layer 2", b"layer 1"])
 		path = os.path.join(self.ufoPath, "layercontents.plist")
 		with open(path, "rb") as f:
 			result = plistlib.load(f)
@@ -4166,8 +4152,8 @@ class UFO3WriteLayersTestCase(unittest.TestCase):
 			["layer 1", "glyphs.layer 1"],
 		]
 		self.assertEqual(expected, result)
-		for layerName, _ in result:
-			assert isinstance(layerName, str)
+		for layerName, directory in result:
+			assert isinstance(layerName, unicode)
 
 # -----
 # /data
@@ -4211,19 +4197,6 @@ class UFO3ReadDataTestCase(unittest.TestCase):
 		fileObject.close()
 		fileObject = reader.getReadFileForPath("data/org.unifiedfontobject.doesNotExist")
 		self.assertEqual(fileObject, None)
-
-	def testUFOReaderKernGroupDuplicatesRemoved(self):
-		# Non-kerning group duplicates are kept
-		# Kerning group duplicates are removed
-		expected_groups = {
-			"group1" : ["A"],
-			"group2" : ["B", "C", "B"],
-			"public.kern1.A" : ["A"],
-			"public.kern2.B" : ["B", "A", "C"],
-		}
-		reader = UFOReader(self.getFontPath())
-		groups = reader.readGroups()
-		self.assertEqual(expected_groups, groups)
 
 
 class UFO3WriteDataTestCase(unittest.TestCase):
@@ -4338,7 +4311,7 @@ class UFO3WriteDataTestCase(unittest.TestCase):
 # layerinfo.plist
 # ---------------
 
-class TestLayerInfoObject:
+class TestLayerInfoObject(object):
 
 	color = guidelines = lib = None
 

@@ -8,7 +8,7 @@
       <LookupFlag value="0"/>
       <!-- SubTableCount=1 -->
       <MarkBasePos index="0" Format="1">
-        <MarkCoverage>
+        <MarkCoverage Format="2">
           <Glyph value="aimatrabindigurmukhi"/>
           <Glyph value="aimatragurmukhi"/>
           <Glyph value="aimatratippigurmukhi"/>
@@ -22,7 +22,7 @@
           <Glyph value="oomatragurmukhi"/>
           <Glyph value="oomatratippigurmukhi"/>
         </MarkCoverage>
-        <BaseCoverage>
+        <BaseCoverage Format="2">
           <Glyph value="lagurmukhi"/>
           <Glyph value="lanuktagurmukhi"/>
           <Glyph value="nagurmukhi"/>

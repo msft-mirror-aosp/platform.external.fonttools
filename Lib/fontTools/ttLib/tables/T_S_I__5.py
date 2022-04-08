@@ -3,6 +3,8 @@ tool to store its hinting source data.
 
 TSI5 contains the VTT character groups.
 """
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
 import sys
@@ -15,7 +17,7 @@ class table_T_S_I__5(DefaultTable.DefaultTable):
 		numGlyphs = ttFont['maxp'].numGlyphs
 		assert len(data) == 2 * numGlyphs
 		a = array.array("H")
-		a.frombytes(data)
+		a.fromstring(data)
 		if sys.byteorder != "big": a.byteswap()
 		self.glyphGrouping = {}
 		for i in range(numGlyphs):
@@ -27,7 +29,7 @@ class table_T_S_I__5(DefaultTable.DefaultTable):
 		for i in range(len(glyphNames)):
 			a.append(self.glyphGrouping.get(glyphNames[i], 0))
 		if sys.byteorder != "big": a.byteswap()
-		return a.tobytes()
+		return a.tostring()
 
 	def toXML(self, writer, ttFont):
 		names = sorted(self.glyphGrouping.keys())

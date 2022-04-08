@@ -1,12 +1,11 @@
 """Variation fonts interpolation models."""
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 
 __all__ = ['nonNone', 'allNone', 'allEqual', 'allEqualTo', 'subList',
 	   'normalizeValue', 'normalizeLocation',
 	   'supportScalar',
 	   'VariationModel']
-
-from fontTools.misc.roundTools import noRound
-from .errors import VariationModelError
 
 
 def nonNone(lst):
@@ -46,11 +45,7 @@ def normalizeValue(v, triple):
 	0.5
 	"""
 	lower, default, upper = triple
-	if not (lower <= default <= upper):
-		raise ValueError(
-			f"Invalid axis values, must be minimum, default, maximum: "
-			f"{lower:3.3f}, {default:3.3f}, {upper:3.3f}"
-		)
+	assert lower <= default <= upper, "invalid axis values: %3.3f, %3.3f %3.3f"%(lower, default, upper)
 	v = max(min(v, upper), lower)
 	if v == default:
 		v = 0.
@@ -144,7 +139,7 @@ def supportScalar(location, support, ot=True):
 			continue
 		if v <= lower or upper <= v:
 			scalar = 0.
-			break
+			break;
 		if v < peak:
 			scalar *= (v - lower) / (peak - lower)
 		else: # v > peak
@@ -199,7 +194,7 @@ class VariationModel(object):
 
 	def __init__(self, locations, axisOrder=None):
 		if len(set(tuple(sorted(l.items())) for l in locations)) != len(locations):
-			raise VariationModelError("Locations must be unique.")
+			raise ValueError("locations must be unique")
 
 		self.origLocations = locations
 		self.axisOrder = axisOrder if axisOrder is not None else []
@@ -227,8 +222,7 @@ class VariationModel(object):
 
 	@staticmethod
 	def getMasterLocationsSortKeyFunc(locations, axisOrder=[]):
-		if {} not in locations:
-			raise VariationModelError("Base master not found.")
+		assert {} in locations, "Base master not found."
 		axisPoints = {}
 		for loc in locations:
 			if len(loc) != 1:
@@ -247,11 +241,7 @@ class VariationModel(object):
 				return -1 if v < 0 else +1 if v > 0 else 0
 			def key(loc):
 				rank = len(loc)
-				onPointAxes = [
-					axis for axis, value in loc.items()
-					if axis in axisPoints
-					and value in axisPoints[axis]
-				]
+				onPointAxes = [axis for axis,value in loc.items() if value in axisPoints[axis]]
 				orderedAxes = [axis for axis in axisOrder if axis in loc]
 				orderedAxes.extend([axis for axis in sorted(loc.keys()) if axis not in axisOrder])
 				return (
@@ -282,18 +272,34 @@ class VariationModel(object):
 
 	def _computeMasterSupports(self, axisPoints):
 		supports = []
-		regions = self._locationsToRegions()
-		for i,region in enumerate(regions):
-			locAxes = set(region.keys())
+		deltaWeights = []
+		locations = self.locations
+		# Compute min/max across each axis, use it as total range.
+		# TODO Take this as input from outside?
+		minV = {}
+		maxV = {}
+		for l in locations:
+			for k,v in l.items():
+				minV[k] = min(v, minV.get(k, v))
+				maxV[k] = max(v, maxV.get(k, v))
+		for i,loc in enumerate(locations):
+			box = {}
+			for axis,locV in loc.items():
+				if locV > 0:
+					box[axis] = (0, locV, maxV[axis])
+				else:
+					box[axis] = (minV[axis], locV, 0)
+
+			locAxes = set(loc.keys())
 			# Walk over previous masters now
-			for j,prev_region in enumerate(regions[:i]):
+			for j,m in enumerate(locations[:i]):
 				# Master with extra axes do not participte
-				if not set(prev_region.keys()).issubset(locAxes):
+				if not set(m.keys()).issubset(locAxes):
 					continue
 				# If it's NOT in the current box, it does not participate
 				relevant = True
-				for axis, (lower,peak,upper) in region.items():
-					if axis not in prev_region or not (prev_region[axis][1] == peak or lower < prev_region[axis][1] < upper):
+				for axis, (lower,peak,upper) in box.items():
+					if axis not in m or not (m[axis] == peak or lower < m[axis] < upper):
 						relevant = False
 						break
 				if not relevant:
@@ -308,10 +314,10 @@ class VariationModel(object):
 
 				bestAxes = {}
 				bestRatio = -1
-				for axis in prev_region.keys():
-					val = prev_region[axis][1]
-					assert axis in region
-					lower,locV,upper = region[axis]
+				for axis in m.keys():
+					val = m[axis]
+					assert axis in box
+					lower,locV,upper = box[axis]
 					newLower, newUpper = lower, upper
 					if val < locV:
 						newLower = val
@@ -329,46 +335,21 @@ class VariationModel(object):
 						bestAxes[axis] = (newLower, locV, newUpper)
 
 				for axis,triple in bestAxes.items ():
-					region[axis] = triple
-			supports.append(region)
-		self.supports = supports
-		self._computeDeltaWeights()
+					box[axis] = triple
+			supports.append(box)
 
-	def _locationsToRegions(self):
-		locations = self.locations
-		# Compute min/max across each axis, use it as total range.
-		# TODO Take this as input from outside?
-		minV = {}
-		maxV = {}
-		for l in locations:
-			for k,v in l.items():
-				minV[k] = min(v, minV.get(k, v))
-				maxV[k] = max(v, maxV.get(k, v))
-
-		regions = []
-		for i,loc in enumerate(locations):
-			region = {}
-			for axis,locV in loc.items():
-				if locV > 0:
-					region[axis] = (0, locV, maxV[axis])
-				else:
-					region[axis] = (minV[axis], locV, 0)
-			regions.append(region)
-		return regions
-
-	def _computeDeltaWeights(self):
-		deltaWeights = []
-		for i,loc in enumerate(self.locations):
 			deltaWeight = {}
 			# Walk over previous masters now, populate deltaWeight
-			for j,m in enumerate(self.locations[:i]):
-				scalar = supportScalar(loc, self.supports[j])
+			for j,m in enumerate(locations[:i]):
+				scalar = supportScalar(loc, supports[j])
 				if scalar:
 					deltaWeight[j] = scalar
 			deltaWeights.append(deltaWeight)
+
+		self.supports = supports
 		self.deltaWeights = deltaWeights
 
-	def getDeltas(self, masterValues, *, round=noRound):
+	def getDeltas(self, masterValues):
 		assert len(masterValues) == len(self.deltaWeights)
 		mapping = self.reverseMapping
 		out = []
@@ -376,12 +357,12 @@ class VariationModel(object):
 			delta = masterValues[mapping[i]]
 			for j,weight in weights.items():
 				delta -= out[j] * weight
-			out.append(round(delta))
+			out.append(delta)
 		return out
 
-	def getDeltasAndSupports(self, items, *, round=noRound):
+	def getDeltasAndSupports(self, items):
 		model, items = self.getSubModel(items)
-		return model.getDeltas(items, round=round), model.supports
+		return model.getDeltas(items), model.supports
 
 	def getScalars(self, loc):
 		return [supportScalar(loc, support) for support in self.supports]
@@ -390,7 +371,7 @@ class VariationModel(object):
 	def interpolateFromDeltasAndScalars(deltas, scalars):
 		v = None
 		assert len(deltas) == len(scalars)
-		for delta, scalar in zip(deltas, scalars):
+		for i,(delta,scalar) in enumerate(zip(deltas, scalars)):
 			if not scalar: continue
 			contribution = delta * scalar
 			if v is None:
@@ -403,12 +384,12 @@ class VariationModel(object):
 		scalars = self.getScalars(loc)
 		return self.interpolateFromDeltasAndScalars(deltas, scalars)
 
-	def interpolateFromMasters(self, loc, masterValues, *, round=noRound):
-		deltas = self.getDeltas(masterValues, round=round)
+	def interpolateFromMasters(self, loc, masterValues):
+		deltas = self.getDeltas(masterValues)
 		return self.interpolateFromDeltas(loc, deltas)
 
-	def interpolateFromMastersAndScalars(self, masterValues, scalars, *, round=noRound):
-		deltas = self.getDeltas(masterValues, round=round)
+	def interpolateFromMastersAndScalars(self, masterValues, scalars):
+		deltas = self.getDeltas(masterValues)
 		return self.interpolateFromDeltasAndScalars(deltas, scalars)
 
 
@@ -432,32 +413,26 @@ def piecewiseLinearMap(v, mapping):
 	return va + (vb - va) * (v - a) / (b - a)
 
 
-def main(args=None):
-	"""Normalize locations on a given designspace"""
+def main(args):
 	from fontTools import configLogger
-	import argparse
 
-	parser = argparse.ArgumentParser(
-		"fonttools varLib.models",
-		description=main.__doc__,
-	)
-	parser.add_argument('--loglevel', metavar='LEVEL', default="INFO",
-		help="Logging level (defaults to INFO)")
+	args = args[1:]
 
-	group = parser.add_mutually_exclusive_group(required=True)
-	group.add_argument('-d', '--designspace',metavar="DESIGNSPACE",type=str)
-	group.add_argument('-l', '--locations', metavar='LOCATION', nargs='+',
-		help="Master locations as comma-separate coordinates. One must be all zeros.")
+	# TODO: allow user to configure logging via command-line options
+	configLogger(level="INFO")
 
-	args = parser.parse_args(args)
+	if len(args) < 1:
+		print("usage: fonttools varLib.models source.designspace", file=sys.stderr)
+		print("  or")
+		print("usage: fonttools varLib.models location1 location2 ...", file=sys.stderr)
+		sys.exit(1)
 
-	configLogger(level=args.loglevel)
 	from pprint import pprint
 
-	if args.designspace:
+	if len(args) == 1 and args[0].endswith('.designspace'):
 		from fontTools.designspaceLib import DesignSpaceDocument
 		doc = DesignSpaceDocument()
-		doc.read(args.designspace)
+		doc.read(args[0])
 		locs = [s.location for s in doc.sources]
 		print("Original locations:")
 		pprint(locs)
@@ -467,7 +442,7 @@ def main(args=None):
 		pprint(locs)
 	else:
 		axes = [chr(c) for c in range(ord('A'), ord('Z')+1)]
-		locs = [dict(zip(axes, (float(v) for v in s.split(',')))) for s in args.locations]
+		locs = [dict(zip(axes, (float(v) for v in s.split(',')))) for s in args]
 
 	model = VariationModel(locs)
 	print("Sorted locations:")
@@ -479,6 +454,6 @@ if __name__ == "__main__":
 	import doctest, sys
 
 	if len(sys.argv) > 1:
-		sys.exit(main())
+		sys.exit(main(sys.argv))
 
 	sys.exit(doctest.testmod().failed)

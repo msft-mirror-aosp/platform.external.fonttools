@@ -1,9 +1,9 @@
+.. highlight:: python
 
-##########
+==========
 converters
-##########
+==========
 
-.. automodule:: fontTools.ufoLib.converters
+.. automodule:: ufoLib.converters
    :inherited-members:
    :members:
-   :undoc-members:

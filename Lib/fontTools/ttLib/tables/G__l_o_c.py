@@ -1,3 +1,5 @@
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
@@ -29,11 +31,11 @@ class table_G__l_o_c(DefaultTable.DefaultTable):
         flags = self.flags
         del self.flags
         self.locations = array.array('I' if flags & 1 else 'H')
-        self.locations.frombytes(data[:len(data) - self.numAttribs * (flags & 2)])
+        self.locations.fromstring(data[:len(data) - self.numAttribs * (flags & 2)])
         if sys.byteorder != "big": self.locations.byteswap()
         self.attribIds = array.array('H')
         if flags & 2:
-            self.attribIds.frombytes(data[-self.numAttribs * 2:])
+            self.attribIds.fromstring(data[-self.numAttribs * 2:])
             if sys.byteorder != "big": self.attribIds.byteswap()
 
     def compile(self, ttFont):
@@ -41,11 +43,11 @@ class table_G__l_o_c(DefaultTable.DefaultTable):
                 flags=(bool(self.attribIds) << 1) + (self.locations.typecode == 'I'),
                 numAttribs=self.numAttribs))
         if sys.byteorder != "big": self.locations.byteswap()
-        data += self.locations.tobytes()
+        data += self.locations.tostring()
         if sys.byteorder != "big": self.locations.byteswap()
         if self.attribIds:
             if sys.byteorder != "big": self.attribIds.byteswap()
-            data += self.attribIds.tobytes()
+            data += self.attribIds.tostring()
             if sys.byteorder != "big": self.attribIds.byteswap()
         return data
 

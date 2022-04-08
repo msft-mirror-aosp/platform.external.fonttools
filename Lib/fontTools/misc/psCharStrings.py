@@ -2,10 +2,9 @@
 CFF dictionary data and Type1/Type2 CharStrings.
 """
 
-from fontTools.misc.py23 import bytechr, byteord, bytesjoin, strjoin
-from fontTools.misc.fixedTools import (
-	fixedToFloat, floatToFixed, floatToFixedToStr, strToFixedToFloat,
-)
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc.fixedTools import fixedToFloat, otRound
 from fontTools.pens.boundsPen import BoundsPen
 import struct
 import logging
@@ -217,7 +216,7 @@ encodeIntT2 = getIntEncoder("t2")
 
 def encodeFixed(f, pack=struct.pack):
 	"""For T2 only"""
-	value = floatToFixed(f, precisionBits=16)
+	value = otRound(f * 65536)  # convert the float to fixed point
 	if value & 0xFFFF == 0:  # check if the fractional part is zero
 		return encodeIntT2(value >> 16)  # encode only the integer part
 	else:
@@ -417,6 +416,7 @@ class SimpleT2Decompiler(object):
 			self.numRegions = self.private.getNumRegions()
 		numBlends = self.pop()
 		numOps = numBlends * (self.numRegions + 1)
+		blendArgs = self.operandStack[-numOps:]
 		del self.operandStack[-(numOps-numBlends):] # Leave the default operands on the stack.
 
 	def op_vsindex(self, index):
@@ -997,7 +997,7 @@ class T2CharString(object):
 			# If present, remove return and endchar operators.
 			if program and program[-1] in ("return", "endchar"):
 				program = program[:-1]
-		elif program and not isinstance(program[-1], str):
+		elif program and not isinstance(program[-1], basestring):
 			raise CharStringCompileError(
 				"T2CharString or Subr has items on the stack after last operator."
 			)
@@ -1010,7 +1010,7 @@ class T2CharString(object):
 		while i < end:
 			token = program[i]
 			i = i + 1
-			if isinstance(token, str):
+			if isinstance(token, basestring):
 				try:
 					bytecode.extend(bytechr(b) for b in opcodes[token])
 				except KeyError:
@@ -1043,7 +1043,8 @@ class T2CharString(object):
 		self.program = None
 
 	def getToken(self, index,
-			len=len, byteord=byteord, isinstance=isinstance):
+			len=len, byteord=byteord, basestring=basestring,
+			isinstance=isinstance):
 		if self.bytecode is not None:
 			if index >= len(self.bytecode):
 				return None, 0, 0
@@ -1056,7 +1057,7 @@ class T2CharString(object):
 				return None, 0, 0
 			token = self.program[index]
 			index = index + 1
-		isOperator = isinstance(token, str)
+		isOperator = isinstance(token, basestring)
 		return token, isOperator, index
 
 	def getBytes(self, index, nBytes):
@@ -1073,7 +1074,7 @@ class T2CharString(object):
 	def handle_operator(self, operator):
 		return operator
 
-	def toXML(self, xmlWriter, ttFont=None):
+	def toXML(self, xmlWriter):
 		from fontTools.misc.textTools import num2binary
 		if self.bytecode is not None:
 			xmlWriter.dumphex(self.bytecode)
@@ -1085,6 +1086,7 @@ class T2CharString(object):
 				if token is None:
 					break
 				if isOperator:
+					args = [str(arg) for arg in args]
 					if token in ('hintmask', 'cntrmask'):
 						hintMask, isOperator, index = self.getToken(index)
 						bits = []
@@ -1098,15 +1100,12 @@ class T2CharString(object):
 					xmlWriter.newline()
 					args = []
 				else:
-					if isinstance(token, float):
-						token = floatToFixedToStr(token, precisionBits=16)
-					else:
-						token = str(token)
 					args.append(token)
 			if args:
 				# NOTE: only CFF2 charstrings/subrs can have numeric arguments on
 				# the stack after the last operator. Compiling this would fail if
 				# this is part of CFF 1.0 table.
+				args = [str(arg) for arg in args]
 				line = ' '.join(args)
 				xmlWriter.write(line)
 
@@ -1127,7 +1126,7 @@ class T2CharString(object):
 				token = int(token)
 			except ValueError:
 				try:
-					token = strToFixedToFloat(token, precisionBits=16)
+					token = float(token)
 				except ValueError:
 					program.append(token)
 					if token in ('hintmask', 'cntrmask'):
@@ -1149,7 +1148,10 @@ class T1CharString(T2CharString):
 	operators, opcodes = buildOperatorDict(t1Operators)
 
 	def __init__(self, bytecode=None, program=None, subrs=None):
-		super().__init__(bytecode, program)
+		if program is None:
+			program = []
+		self.bytecode = bytecode
+		self.program = program
 		self.subrs = subrs
 
 	def getIntEncoder(self):

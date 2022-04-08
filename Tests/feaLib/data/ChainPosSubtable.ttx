@@ -67,26 +67,24 @@
             <LookupListIndex value="1"/>
           </PosLookupRecord>
         </ChainContextPos>
-        <ChainContextPos index="1" Format="1">
-          <Coverage>
+        <ChainContextPos index="1" Format="3">
+          <!-- BacktrackGlyphCount=1 -->
+          <BacktrackCoverage index="0">
+            <Glyph value="X"/>
+          </BacktrackCoverage>
+          <!-- InputGlyphCount=1 -->
+          <InputCoverage index="0">
             <Glyph value="A"/>
-          </Coverage>
-          <!-- ChainPosRuleSetCount=1 -->
-          <ChainPosRuleSet index="0">
-            <!-- ChainPosRuleCount=1 -->
-            <ChainPosRule index="0">
-              <!-- BacktrackGlyphCount=1 -->
-              <Backtrack index="0" value="X"/>
-              <!-- InputGlyphCount=1 -->
-              <!-- LookAheadGlyphCount=1 -->
-              <LookAhead index="0" value="Y"/>
-              <!-- PosCount=1 -->
-              <PosLookupRecord index="0">
-                <SequenceIndex value="0"/>
-                <LookupListIndex value="2"/>
-              </PosLookupRecord>
-            </ChainPosRule>
-          </ChainPosRuleSet>
+          </InputCoverage>
+          <!-- LookAheadGlyphCount=1 -->
+          <LookAheadCoverage index="0">
+            <Glyph value="Y"/>
+          </LookAheadCoverage>
+          <!-- PosCount=1 -->
+          <PosLookupRecord index="0">
+            <SequenceIndex value="0"/>
+            <LookupListIndex value="2"/>
+          </PosLookupRecord>
         </ChainContextPos>
         <ChainContextPos index="2" Format="3">
           <!-- BacktrackGlyphCount=1 -->

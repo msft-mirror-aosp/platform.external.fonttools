@@ -31,10 +31,10 @@
       <!-- LookupCount=1 -->
       <Lookup index="0">
         <LookupType value="1"/>
-        <LookupFlag value="2"/><!-- ignoreBaseGlyphs -->
+        <LookupFlag value="2"/>
         <!-- SubTableCount=1 -->
         <SinglePos index="0" Format="1">
-          <Coverage>
+          <Coverage Format="1">
             <Glyph value="g18"/>
             <Glyph value="g20"/>
           </Coverage>

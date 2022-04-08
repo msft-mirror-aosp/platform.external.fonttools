@@ -1,9 +1,13 @@
-from fontTools.misc.py23 import bytesjoin, tostr
-from io import BytesIO
+""" Tools for reading Mac resource forks. """
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 import struct
 from fontTools.misc import sstruct
 from collections import OrderedDict
-from collections.abc import MutableMapping
+try:
+	from collections.abc import MutableMapping
+except ImportError:
+	from UserDict import DictMixin as MutableMapping
 
 
 class ResourceError(Exception):
@@ -11,25 +15,8 @@ class ResourceError(Exception):
 
 
 class ResourceReader(MutableMapping):
-	"""Reader for Mac OS resource forks.
 
-	Parses a resource fork and returns resources according to their type.
-	If run on OS X, this will open the resource fork in the filesystem.
-	Otherwise, it will open the file itself and attempt to read it as
-	though it were a resource fork.
-
-	The returned object can be indexed by type and iterated over,
-	returning in each case a list of py:class:`Resource` objects
-	representing all the resources of a certain type.
-
-	"""
 	def __init__(self, fileOrPath):
-		"""Open a file
-
-		Args:
-			fileOrPath: Either an object supporting a ``read`` method, an
-				``os.PathLike`` object, or a string.
-		"""
 		self._resources = OrderedDict()
 		if hasattr(fileOrPath, 'read'):
 			self.file = fileOrPath
@@ -138,7 +125,6 @@ class ResourceReader(MutableMapping):
 
 	@property
 	def types(self):
-		"""A list of the types of resources in the resource fork."""
 		return list(self._resources.keys())
 
 	def countResources(self, resType):
@@ -149,7 +135,6 @@ class ResourceReader(MutableMapping):
 			return 0
 
 	def getIndices(self, resType):
-		"""Returns a list of indices of resources of a given type."""
 		numRes = self.countResources(resType)
 		if numRes:
 			return list(range(1, numRes+1))
@@ -186,15 +171,6 @@ class ResourceReader(MutableMapping):
 
 
 class Resource(object):
-	"""Represents a resource stored within a resource fork.
-
-	Attributes:
-		type: resource type.
-		data: resource data.
-		id: ID.
-		name: resource name.
-		attr: attributes.
-	"""
 
 	def __init__(self, resType=None, resData=None, resID=None, resName=None,
 			     resAttr=None):

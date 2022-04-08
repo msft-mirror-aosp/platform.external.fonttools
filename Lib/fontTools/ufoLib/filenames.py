@@ -1,7 +1,10 @@
 """
 User name to file name conversion.
-This was taken from the UFO 3 spec.
+This was taken form the UFO 3 spec.
 """
+from __future__ import absolute_import, unicode_literals
+from fontTools.misc.py23 import basestring, unicode
+
 
 illegalCharacters = r"\" * + / : < > ? [ \ ] | \0".split(" ")
 illegalCharacters += [chr(i) for i in range(1, 32)]
@@ -15,7 +18,7 @@ class NameTranslationError(Exception):
 	pass
 
 
-def userNameToFileName(userName: str, existing=[], prefix="", suffix=""):
+def userNameToFileName(userName, existing=[], prefix="", suffix=""):
 	"""
 	existing should be a case-insensitive list
 	of all existing file names.
@@ -65,9 +68,9 @@ def userNameToFileName(userName: str, existing=[], prefix="", suffix=""):
 	>>> userNameToFileName("alt.con") == "alt._con"
 	True
 	"""
-	# the incoming name must be a string
-	if not isinstance(userName, str):
-		raise ValueError("The value for userName must be a string.")
+	# the incoming name must be a unicode string
+	if not isinstance(userName, unicode):
+		raise ValueError("The value for userName must be a unicode string.")
 	# establish the prefix and suffix lengths
 	prefixLength = len(prefix)
 	suffixLength = len(suffix)

@@ -1,4 +1,5 @@
-from fontTools.misc.py23 import byteord
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
@@ -173,7 +174,7 @@ class table_M_E_T_A_(DefaultTable.DefaultTable):
 			glyphRec = GlyphRecord()
 			self.glyphRecords.append(glyphRec)
 			for element in content:
-				if isinstance(element, str):
+				if isinstance(element, basestring):
 					continue
 				name, attrs, content = element
 				glyphRec.fromXML(name, attrs, content, ttFont)
@@ -207,7 +208,7 @@ class GlyphRecord(object):
 			stringRec = StringRecord()
 			self.stringRecs.append(stringRec)
 			for element in content:
-				if isinstance(element, str):
+				if isinstance(element, basestring):
 					continue
 				stringRec.fromXML(name, attrs, content, ttFont)
 			stringRec.stringLen = len(stringRec.string)
@@ -229,7 +230,7 @@ class GlyphRecord(object):
 # XXX The following two functions are really broken around UTF-8 vs Unicode
 
 def mapXMLToUTF8(string):
-	uString = str()
+	uString = unicode()
 	strLen = len(string)
 	i = 0
 	while i < strLen:
@@ -245,9 +246,9 @@ def mapXMLToUTF8(string):
 				i = i+1
 			valStr = string[j:i]
 
-			uString = uString + chr(eval('0x' + valStr))
+			uString = uString + unichr(eval('0x' + valStr))
 		else:
-			uString = uString + chr(byteord(string[i]))
+			uString = uString + unichr(byteord(string[i]))
 		i = i +1
 
 	return uString.encode('utf_8')
@@ -281,7 +282,7 @@ class StringRecord(object):
 
 	def fromXML(self, name, attrs, content, ttFont):
 		for element in content:
-			if isinstance(element, str):
+			if isinstance(element, basestring):
 				continue
 			name, attrs, content = element
 			value = attrs["value"]

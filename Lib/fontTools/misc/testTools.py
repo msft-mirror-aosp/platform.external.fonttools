@@ -1,13 +1,17 @@
 """Helpers for writing unit tests."""
 
-from collections.abc import Iterable
-from io import BytesIO
+from __future__ import (print_function, division, absolute_import,
+                        unicode_literals)
+try:
+    from collections.abc import Iterable
+except ImportError:  # python < 3.3
+    from collections import Iterable
 import os
 import shutil
 import sys
 import tempfile
 from unittest import TestCase as _TestCase
-from fontTools.misc.py23 import tobytes
+from fontTools.misc.py23 import *
 from fontTools.misc.xmlWriter import XMLWriter
 
 
@@ -26,7 +30,7 @@ def parseXML(xmlSnippet):
     xml = b"<root>"
     if isinstance(xmlSnippet, bytes):
         xml += xmlSnippet
-    elif isinstance(xmlSnippet, str):
+    elif isinstance(xmlSnippet, unicode):
         xml += tobytes(xmlSnippet, 'utf-8')
     elif isinstance(xmlSnippet, Iterable):
         xml += b"".join(tobytes(s, 'utf-8') for s in xmlSnippet)
@@ -68,9 +72,6 @@ class FakeFont:
 
     def getReverseGlyphMap(self):
         return self.reverseGlyphOrderDict_
-
-    def getGlyphNames(self):
-        return sorted(self.getGlyphOrder())
 
 
 class TestXMLReader_(object):

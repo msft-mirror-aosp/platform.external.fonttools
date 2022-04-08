@@ -1,8 +1,13 @@
 """Miscellaneous helpers for our test suite."""
 
+from __future__ import absolute_import, unicode_literals
 import os
 from fontTools.ufoLib.utils import numberTypes
 
+try:
+	basestring
+except NameError:
+	basestring = str
 
 def getDemoFontPath():
 	"""Return the path to Data/DemoFont.ufo/."""
@@ -17,7 +22,7 @@ def getDemoFontGlyphSetPath():
 
 # GLIF test tools
 
-class Glyph:
+class Glyph(object):
 
 	def __init__(self):
 		self.name = None
@@ -35,11 +40,11 @@ class Glyph:
 		args = _listToString(args)
 		kwargs = _dictToString(kwargs)
 		if args and kwargs:
-			return f"pointPen.{command}(*{args}, **{kwargs})"
+			return "pointPen.%s(*%s, **%s)" % (command, args, kwargs)
 		elif len(args):
-			return f"pointPen.{command}(*{args})"
+			return "pointPen.%s(*%s)" % (command, args)
 		elif len(kwargs):
-			return f"pointPen.{command}(**{kwargs})"
+			return "pointPen.%s(**%s)" % (command, kwargs)
 		else:
 			return "pointPen.%s()" % command
 
@@ -98,9 +103,9 @@ def _dictToString(d):
 			value = _tupleToString(value)
 		elif isinstance(value, numberTypes):
 			value = repr(value)
-		elif isinstance(value, str):
+		elif isinstance(value, basestring):
 			value = "\"%s\"" % value
-		text.append(f"{key} : {value}")
+		text.append("%s : %s" % (key, value))
 	if not text:
 		return ""
 	return "{%s}" % ", ".join(text)
@@ -116,7 +121,7 @@ def _listToString(l):
 			value = _tupleToString(value)
 		elif isinstance(value, numberTypes):
 			value = repr(value)
-		elif isinstance(value, str):
+		elif isinstance(value, basestring):
 			value = "\"%s\"" % value
 		text.append(value)
 	if not text:
@@ -134,7 +139,7 @@ def _tupleToString(t):
 			value = _tupleToString(value)
 		elif isinstance(value, numberTypes):
 			value = repr(value)
-		elif isinstance(value, str):
+		elif isinstance(value, basestring):
 			value = "\"%s\"" % value
 		text.append(value)
 	if not text:

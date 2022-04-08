@@ -1,4 +1,5 @@
-from fontTools.misc.py23 import bytesjoin, strjoin
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc import sstruct
 from fontTools.misc.textTools import readHex
 from fontTools.ttLib import TTLibError
@@ -85,11 +86,7 @@ class table__m_e_t_a(DefaultTable.DefaultTable):
             else:
                 writer.begintag("hexdata", tag=tag)
                 writer.newline()
-                data = self.data[tag]
-                if min(data) >= 0x20 and max(data) <= 0x7E:
-                    writer.comment("ascii: " + data.decode("ascii"))
-                    writer.newline()
-                writer.dumphex(data)
+                writer.dumphex(self.data[tag])
                 writer.endtag("hexdata")
                 writer.newline()
 

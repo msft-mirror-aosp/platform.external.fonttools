@@ -1,3 +1,5 @@
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.misc.testTools import parseXML
 from fontTools.misc.timeTools import timestampSinceEpoch
 from fontTools.ttLib import TTFont, TTLibError
@@ -17,10 +19,7 @@ try:
 except ImportError:
     zopfli = None
 try:
-    try:
-        import brotlicffi as brotli
-    except ImportError:
-        import brotli
+    import brotli
 except ImportError:
     brotli = None
 

@@ -1,10 +1,7 @@
-####################################
-merge: Merge multiple fonts into one
-####################################
+#####
+merge
+#####
 
-``fontTools.merge`` provides both a library and a command line interface
-(``fonttools merge``) for merging multiple fonts together.
-
-.. autoclass:: fontTools.merge.Merger
-   :inherited-members:
+.. automodule:: fontTools.merge
    :members:
+   :undoc-members:

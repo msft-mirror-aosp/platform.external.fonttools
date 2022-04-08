@@ -1,4 +1,6 @@
-from fontTools.misc.roundTools import otRound
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc.fixedTools import otRound
 from fontTools import ttLib
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
@@ -107,7 +109,7 @@ class table__h_m_t_x(DefaultTable.DefaultTable):
 				raise
 		additionalMetrics = array.array("h", additionalMetrics)
 		if sys.byteorder != "big": additionalMetrics.byteswap()
-		data = data + additionalMetrics.tobytes()
+		data = data + additionalMetrics.tostring()
 		return data
 
 	def toXML(self, writer, ttFont):

@@ -2,18 +2,21 @@
 #
 # Google Author(s): Behdad Esfahbod
 
-from fontTools.misc.roundTools import otRound
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc.fixedTools import otRound
 from fontTools import ttLib
 from fontTools.ttLib.tables import otTables
 from fontTools.otlLib.maxContextCalc import maxCtxFont
 from fontTools.pens.basePen import NullPen
 from fontTools.misc.loggingTools import Timer
 from fontTools.subset.cff import *
+from fontTools.varLib import varStore
 import sys
 import struct
 import array
 import logging
-from collections import Counter, defaultdict
+from collections import Counter
 from types import MethodType
 
 __usage__ = "pyftsubset font-file [glyph...] [--option=value]..."
@@ -174,9 +177,8 @@ Glyph set expansion:
             * Keep default set of features plus 'aalt', but drop 'vrt2'.
   --layout-scripts[+|-]=<script>[,<script>...]
       Specify (=), add to (+=) or exclude from (-=) the comma-separated
-      set of OpenType layout script tags that will be preserved. LangSys tags
-      can be appended to script tag, separated by '.', for example:
-      'arab.dflt,arab.URD,latn.TRK'. By default all scripts are retained ('*').
+      set of OpenType layout script tags that will be preserved.  By
+      default all scripts are retained ('*').
 
 Hinting options:
   --hinting
@@ -427,14 +429,13 @@ def intersect_class(self, glyphs, klass):
 		     if v == klass and g in glyphs)
 
 @_add_method(otTables.ClassDef)
-def subset(self, glyphs, remap=False, useClass0=True):
+def subset(self, glyphs, remap=False):
 	"""Returns ascending list of remaining classes."""
 	self.classDefs = {g:v for g,v in self.classDefs.items() if g in glyphs}
 	# Note: while class 0 has the special meaning of "not matched",
 	# if no glyph will ever /not match/, we can optimize class 0 out too.
-	# Only do this if allowed.
 	indices = _uniq_sort(
-		 ([0] if ((not useClass0) or any(g not in self.classDefs for g in glyphs)) else []) +
+		 ([0] if any(g not in self.classDefs for g in glyphs) else []) +
 			list(self.classDefs.values()))
 	if remap:
 		self.remap(indices)
@@ -546,11 +547,6 @@ def prune_post_subset(self, font, options):
 	if not options.hinting:
 		# Drop device tables
 		self.ValueFormat &= ~0x00F0
-	# Downgrade to Format 1 if all ValueRecords are the same
-	if self.Format == 2 and all(v == self.Value[0] for v in self.Value):
-		self.Format = 1
-		self.Value = self.Value[0] if self.ValueFormat != 0 else None
-		del self.ValueCount
 	return True
 
 @_add_method(otTables.PairPos)
@@ -570,16 +566,15 @@ def subset_glyphs(self, s):
 		self.PairSetCount = len(self.PairSet)
 		return bool(self.PairSetCount)
 	elif self.Format == 2:
-		class1_map = [c for c in self.ClassDef1.subset(s.glyphs.intersection(self.Coverage.glyphs), remap=True) if c < self.Class1Count]
-		class2_map = [c for c in self.ClassDef2.subset(s.glyphs, remap=True, useClass0=False) if c < self.Class2Count]
+		class1_map = [c for c in self.ClassDef1.subset(s.glyphs, remap=True) if c < self.Class1Count]
+		class2_map = [c for c in self.ClassDef2.subset(s.glyphs, remap=True) if c < self.Class2Count]
 		self.Class1Record = [self.Class1Record[i] for i in class1_map]
 		for c in self.Class1Record:
 			c.Class2Record = [c.Class2Record[i] for i in class2_map]
 		self.Class1Count = len(class1_map)
 		self.Class2Count = len(class2_map)
-		# If only Class2 0 left, no need to keep anything.
 		return bool(self.Class1Count and
-					(self.Class2Count > 1) and
+					self.Class2Count and
 					self.Coverage.subset(s.glyphs))
 	else:
 		assert 0, "unknown format: %s" % self.Format
@@ -895,17 +890,15 @@ def __subset_classify_context(self):
 				self.ClassDef = 'InputClassDef' if Chain else 'ClassDef'
 				self.ClassDefIndex = 1 if Chain else 0
 				self.Input = 'Input' if Chain else 'Class'
-			elif Format == 3:
-				self.Input = 'InputCoverage' if Chain else 'Coverage'
 
 	if self.Format not in [1, 2, 3]:
 		return None	# Don't shoot the messenger; let it go
-	if not hasattr(self.__class__, "_subset__ContextHelpers"):
-		self.__class__._subset__ContextHelpers = {}
-	if self.Format not in self.__class__._subset__ContextHelpers:
+	if not hasattr(self.__class__, "__ContextHelpers"):
+		self.__class__.__ContextHelpers = {}
+	if self.Format not in self.__class__.__ContextHelpers:
 		helper = ContextHelper(self.__class__, self.Format)
-		self.__class__._subset__ContextHelpers[self.Format] = helper
-	return self.__class__._subset__ContextHelpers[self.Format]
+		self.__class__.__ContextHelpers[self.Format] = helper
+	return self.__class__.__ContextHelpers[self.Format]
 
 @_add_method(otTables.ContextSubst,
 			 otTables.ChainContextSubst)
@@ -979,7 +972,6 @@ def closure_glyphs(self, s, cur_glyphs):
 		if not all(x.intersect(s.glyphs) for x in c.RuleData(self)):
 			return []
 		r = self
-		input_coverages = getattr(r, c.Input)
 		chaos = set()
 		for ll in getattr(r, c.LookupRecord):
 			if not ll: continue
@@ -991,11 +983,11 @@ def closure_glyphs(self, s, cur_glyphs):
 				if seqi == 0:
 					pos_glyphs = frozenset(cur_glyphs)
 				else:
-					pos_glyphs = frozenset(input_coverages[seqi].intersect_glyphs(s.glyphs))
+					pos_glyphs = frozenset(r.InputCoverage[seqi].intersect_glyphs(s.glyphs))
 			lookup = s.table.LookupList.Lookup[ll.LookupListIndex]
 			chaos.add(seqi)
 			if lookup.may_have_non_1to1():
-				chaos.update(range(seqi, len(input_coverages)+1))
+				chaos.update(range(seqi, len(r.InputCoverage)+1))
 			lookup.closure_glyphs(s, cur_glyphs=pos_glyphs)
 	else:
 		assert 0, "unknown format: %s" % self.Format
@@ -1316,23 +1308,14 @@ def subset_features(self, feature_indices):
 	self.ensureDecompiled()
 	self.SubstitutionRecord = [r for r in self.SubstitutionRecord
 				     if r.FeatureIndex in feature_indices]
-	# remap feature indices
-	for r in self.SubstitutionRecord:
-		r.FeatureIndex = feature_indices.index(r.FeatureIndex)
 	self.SubstitutionCount = len(self.SubstitutionRecord)
 	return bool(self.SubstitutionCount)
 
 @_add_method(otTables.FeatureVariations)
 def subset_features(self, feature_indices):
 	self.ensureDecompiled()
-	for r in self.FeatureVariationRecord:
-		r.FeatureTableSubstitution.subset_features(feature_indices)
-	# Prune empty records at the end only
-	# https://github.com/fonttools/fonttools/issues/1881
-	while (self.FeatureVariationRecord and
-		not self.FeatureVariationRecord[-1]
-			.FeatureTableSubstitution.SubstitutionCount):
-		self.FeatureVariationRecord.pop()
+	self.FeaturVariationRecord = [r for r in self.FeatureVariationRecord
+					if r.FeatureTableSubstitution.subset_features(feature_indices)]
 	self.FeatureVariationCount = len(self.FeatureVariationRecord)
 	return bool(self.FeatureVariationCount)
 
@@ -1404,14 +1387,9 @@ def subset_glyphs(self, s):
 # CBDT will inherit it
 @_add_method(ttLib.getTableClass('EBDT'))
 def subset_glyphs(self, s):
-	strikeData = [
-		{g: strike[g] for g in s.glyphs if g in strike}
-		for strike in self.strikeData
-	]
-	# Prune empty strikes
-	# https://github.com/fonttools/fonttools/issues/1633
-	self.strikeData = [strike for strike in strikeData if strike]
-	return True
+  self.strikeData = [{g: strike[g] for g in s.glyphs if g in strike}
+					 for strike in self.strikeData]
+  return True
 
 @_add_method(ttLib.getTableClass('sbix'))
 def subset_glyphs(self, s):
@@ -1534,28 +1512,12 @@ def subset_feature_tags(self, feature_tags):
 
 @_add_method(ttLib.getTableClass('GSUB'),
 	     ttLib.getTableClass('GPOS'))
-def subset_script_tags(self, tags):
-	langsys = {}
-	script_tags = set()
-	for tag in tags:
-		script_tag, lang_tag = tag.split(".") if "." in tag else (tag, '*')
-		script_tags.add(script_tag.ljust(4))
-		langsys.setdefault(script_tag, set()).add(lang_tag.ljust(4))
-
+def subset_script_tags(self, script_tags):
 	if self.table.ScriptList:
 		self.table.ScriptList.ScriptRecord = \
 			[s for s in self.table.ScriptList.ScriptRecord
 			 if s.ScriptTag in script_tags]
 		self.table.ScriptList.ScriptCount = len(self.table.ScriptList.ScriptRecord)
-
-		for record in self.table.ScriptList.ScriptRecord:
-			if record.ScriptTag in langsys and '*   ' not in langsys[record.ScriptTag]:
-				record.Script.LangSysRecord = \
-					[l for l in record.Script.LangSysRecord
-					 if l.LangSysTag in langsys[record.ScriptTag]]
-				record.Script.LangSysCount = len(record.Script.LangSysRecord)
-				if "dflt" not in langsys[record.ScriptTag]:
-					record.Script.DefaultLangSys = None
 
 @_add_method(ttLib.getTableClass('GSUB'),
 			 ttLib.getTableClass('GPOS'))
@@ -1651,15 +1613,11 @@ def prune_post_subset(self, font, options):
 	#if table.ScriptList and not table.ScriptList.ScriptRecord:
 	#	table.ScriptList = None
 
-	if hasattr(table, 'FeatureVariations'):
-		# drop FeatureVariations if there are no features to substitute
-		if table.FeatureVariations and not (
-			table.FeatureList and table.FeatureVariations.FeatureVariationRecord
-		):
-			table.FeatureVariations = None
+	if not table.FeatureList and hasattr(table, 'FeatureVariations'):
+		table.FeatureVariations = None
 
-		# downgrade table version if there are no FeatureVariations
-		if not table.FeatureVariations and table.Version == 0x00010001:
+	if hasattr(table, 'FeatureVariations') and not table.FeatureVariations:
+		if table.Version == 0x00010001:
 			table.Version = 0x00010000
 
 	return True
@@ -1878,7 +1836,7 @@ def subset_glyphs(self, s):
 		table.RsbMap.mapping = _dict_subset(table.RsbMap.mapping, s.glyphs)
 		used.update(table.RsbMap.mapping.values())
 
-	varidx_map = table.VarStore.subset_varidxes(used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
+	varidx_map = varStore.VarStore_subset_varidxes(table.VarStore, used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
 
 	if table.AdvWidthMap:
 		table.AdvWidthMap.mapping = _remap_index_map(s, varidx_map, table.AdvWidthMap)
@@ -1916,7 +1874,7 @@ def subset_glyphs(self, s):
 		table.VOrgMap.mapping = _dict_subset(table.VOrgMap.mapping, s.glyphs)
 		used.update(table.VOrgMap.mapping.values())
 
-	varidx_map = table.VarStore.subset_varidxes(used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
+	varidx_map = varStore.VarStore_subset_varidxes(table.VarStore, used, retainFirstMap=retainAdvMap, advIdxes=advIdxes_)
 
 	if table.AdvHeightMap:
 		table.AdvHeightMap.mapping = _remap_index_map(s, varidx_map, table.AdvHeightMap)
@@ -1984,130 +1942,27 @@ def subset_glyphs(self, s):
 	else:
 		assert False, "unknown 'prop' format %s" % prop.Format
 
-def _paint_glyph_names(paint, colr):
-	result = set()
-
-	def callback(paint):
-		if paint.Format in {
-			otTables.PaintFormat.PaintGlyph,
-			otTables.PaintFormat.PaintColrGlyph,
-		}:
-			result.add(paint.Glyph)
-
-	paint.traverse(colr, callback)
-	return result
-
 @_add_method(ttLib.getTableClass('COLR'))
 def closure_glyphs(self, s):
-	if self.version > 0:
-		# on decompiling COLRv1, we only keep around the raw otTables
-		# but for subsetting we need dicts with fully decompiled layers;
-		# we store them temporarily in the C_O_L_R_ instance and delete
-		# them after we have finished subsetting.
-		self.ColorLayers = self._decompileColorLayersV0(self.table)
-		self.ColorLayersV1 = {
-			rec.BaseGlyph: rec.Paint
-			for rec in self.table.BaseGlyphV1List.BaseGlyphV1Record
-		}
-
 	decompose = s.glyphs
 	while decompose:
 		layers = set()
 		for g in decompose:
-			for layer in self.ColorLayers.get(g, []):
-				layers.add(layer.name)
-
-			if self.version > 0:
-				paint = self.ColorLayersV1.get(g)
-				if paint is not None:
-					layers.update(_paint_glyph_names(paint, self.table))
-
+			for l in self.ColorLayers.get(g, []):
+				layers.add(l.name)
 		layers -= s.glyphs
 		s.glyphs.update(layers)
 		decompose = layers
 
 @_add_method(ttLib.getTableClass('COLR'))
 def subset_glyphs(self, s):
-	from fontTools.colorLib.unbuilder import unbuildColrV1
-	from fontTools.colorLib.builder import buildColrV1, populateCOLRv0
-
 	self.ColorLayers = {g: self.ColorLayers[g] for g in s.glyphs if g in self.ColorLayers}
-	if self.version == 0:
-		return bool(self.ColorLayers)
+	return bool(self.ColorLayers)
 
-	colorGlyphsV1 = unbuildColrV1(self.table.LayerV1List, self.table.BaseGlyphV1List)
-	self.table.LayerV1List, self.table.BaseGlyphV1List = buildColrV1(
-		{g: colorGlyphsV1[g] for g in colorGlyphsV1 if g in s.glyphs}
-	)
-	del self.ColorLayersV1
-
-	layersV0 = self.ColorLayers
-	if not self.table.BaseGlyphV1List.BaseGlyphV1Record:
-		# no more COLRv1 glyphs: downgrade to version 0
-		self.version = 0
-		del self.table
-		return bool(layersV0)
-
-	if layersV0:
-		populateCOLRv0(
-			self.table,
-			{
-				g: [(layer.name, layer.colorID) for layer in layersV0[g]]
-				for g in layersV0
-			},
-		)
-	del self.ColorLayers
-
-	# TODO: also prune ununsed varIndices in COLR.VarStore
-	return True
-
+# TODO: prune unused palettes
 @_add_method(ttLib.getTableClass('CPAL'))
 def prune_post_subset(self, font, options):
-	colr = font.get("COLR")
-	if not colr:  # drop CPAL if COLR was subsetted to empty
-		return False
-
-	colors_by_index = defaultdict(list)
-
-	def collect_colors_by_index(paint):
-		if hasattr(paint, "Color"):  # either solid colors...
-			colors_by_index[paint.Color.PaletteIndex].append(paint.Color)
-		elif hasattr(paint, "ColorLine"):  # ... or gradient color stops
-			for stop in paint.ColorLine.ColorStop:
-				colors_by_index[stop.Color.PaletteIndex].append(stop.Color)
-
-	if colr.version == 0:
-		for layers in colr.ColorLayers.values():
-			for layer in layers:
-				colors_by_index[layer.colorID].append(layer)
-	else:
-		if colr.table.LayerRecordArray:
-			for layer in colr.table.LayerRecordArray.LayerRecord:
-				colors_by_index[layer.PaletteIndex].append(layer)
-		for record in colr.table.BaseGlyphV1List.BaseGlyphV1Record:
-			record.Paint.traverse(colr.table, collect_colors_by_index)
-
-	retained_palette_indices = set(colors_by_index.keys())
-	for palette in self.palettes:
-		palette[:] = [c for i, c in enumerate(palette) if i in retained_palette_indices]
-		assert len(palette) == len(retained_palette_indices)
-
-	for new_index, old_index in enumerate(sorted(retained_palette_indices)):
-		for record in colors_by_index[old_index]:
-			if hasattr(record, "colorID"):  # v0
-				record.colorID = new_index
-			elif hasattr(record, "PaletteIndex"):  # v1
-				record.PaletteIndex = new_index
-			else:
-				raise AssertionError(record)
-
-	self.numPaletteEntries = len(self.palettes[0])
-
-	if self.version == 1:
-		self.paletteEntryLabels = [
-			label for i, label in self.paletteEntryLabels if i in retained_palette_indices
-		]
-	return bool(self.numPaletteEntries)
+	return True
 
 @_add_method(otTables.MathGlyphConstruction)
 def closure_glyphs(self, glyphs):
@@ -2221,7 +2076,7 @@ def remapComponentsFast(self, glyphidmap):
 		elif flags & 0x0080: i += 8	# WE_HAVE_A_TWO_BY_TWO
 		more = flags & 0x0020	# MORE_COMPONENTS
 
-	self.data = data.tobytes()
+	self.data = data.tostring()
 
 @_add_method(ttLib.getTableClass('glyf'))
 def closure_glyphs(self, s):
@@ -2311,17 +2166,7 @@ def prune_pre_subset(self, font, options):
 @_add_method(ttLib.getTableClass('cmap'))
 def subset_glyphs(self, s):
 	s.glyphs = None # We use s.glyphs_requested and s.unicodes_requested only
-
-	tables_format12_bmp = []
-	table_plat0_enc3 = {}  # Unicode platform, Unicode BMP only, keyed by language
-	table_plat3_enc1 = {}  # Windows platform, Unicode BMP, keyed by language
-
 	for t in self.tables:
-		if t.platformID == 0 and t.platEncID == 3:
-			table_plat0_enc3[t.language] = t
-		if t.platformID == 3 and t.platEncID == 1:
-			table_plat3_enc1[t.language] = t
-
 		if t.format == 14:
 			# TODO(behdad) We drop all the default-UVS mappings
 			# for glyphs_requested.  So it's the caller's responsibility to make
@@ -2333,38 +2178,16 @@ def subset_glyphs(self, s):
 		elif t.isUnicode():
 			t.cmap = {u:g for u,g in t.cmap.items()
 				      if g in s.glyphs_requested or u in s.unicodes_requested}
-			# Collect format 12 tables that hold only basic multilingual plane
-			# codepoints.
-			if t.format == 12 and t.cmap and max(t.cmap.keys()) < 0x10000:
-				tables_format12_bmp.append(t)
 		else:
 			t.cmap = {u:g for u,g in t.cmap.items()
 				      if g in s.glyphs_requested}
-
-	# Fomat 12 tables are redundant if they contain just the same BMP codepoints
-	# their little BMP-only encoding siblings contain.
-	for t in tables_format12_bmp:
-		if (
-			t.platformID == 0  # Unicode platform
-			and t.platEncID == 4  # Unicode full repertoire
-			and t.language in table_plat0_enc3  # Have a BMP-only sibling?
-			and table_plat0_enc3[t.language].cmap == t.cmap
-		):
-			t.cmap.clear()
-		elif (
-			t.platformID == 3  # Windows platform
-			and t.platEncID == 10  # Unicode full repertoire
-			and t.language in table_plat3_enc1  # Have a BMP-only sibling?
-			and table_plat3_enc1[t.language].cmap == t.cmap
-		):
-			t.cmap.clear()
-
 	self.tables = [t for t in self.tables
 			 if (t.cmap if t.format != 14 else t.uvsDict)]
 	self.numSubTables = len(self.tables)
 	# TODO(behdad) Convert formats when needed.
 	# In particular, if we have a format=12 without non-BMP
-	# characters, convert it to format=4 if there's not one.
+	# characters, either drop format=12 one or convert it
+	# to format=4 if there's not one.
 	return True # Required table
 
 @_add_method(ttLib.getTableClass('DSIG'))
@@ -2864,7 +2687,7 @@ class Subsetter(object):
 def load_font(fontFile,
 	      options,
 	      allowVID=False,
-	      checkChecksums=0,
+	      checkChecksums=False,
 	      dontLoadGlyphNames=False,
 	      lazy=True):
 
@@ -2937,7 +2760,6 @@ def usage():
 
 @timer("make one with everything (TOTAL TIME)")
 def main(args=None):
-	"""OpenType font subsetter and optimizer"""
 	from os.path import splitext
 	from fontTools import configLogger
 

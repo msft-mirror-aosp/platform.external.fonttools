@@ -1,6 +1,8 @@
+from __future__ import print_function, division, absolute_import, unicode_literals
 import io
 import os
 import re
+from fontTools.misc.py23 import *
 from fontTools import ttLib
 from fontTools.fontBuilder import FontBuilder
 import unittest

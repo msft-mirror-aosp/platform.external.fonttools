@@ -1,11 +1,6 @@
-from fontTools.misc.py23 import bytechr, byteord, bytesjoin
-from fontTools.misc.fixedTools import (
-    fixedToFloat as fi2fl,
-    floatToFixed as fl2fi,
-    floatToFixedToStr as fl2str,
-    strToFixedToFloat as str2fl,
-    otRound,
-)
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc.fixedTools import fixedToFloat, floatToFixed, otRound
 from fontTools.misc.textTools import safeEval
 import array
 import io
@@ -68,17 +63,17 @@ class TupleVariation(object):
 		for axis in axisTags:
 			value = self.axes.get(axis)
 			if value is not None:
-				minValue, value, maxValue = value
+				minValue, value, maxValue = (float(v) for v in value)
 				defaultMinValue = min(value, 0.0)  # -0.3 --> -0.3; 0.7 --> 0.0
 				defaultMaxValue = max(value, 0.0)  # -0.3 -->  0.0; 0.7 --> 0.7
 				if minValue == defaultMinValue and maxValue == defaultMaxValue:
-					writer.simpletag("coord", axis=axis, value=fl2str(value, 14))
+					writer.simpletag("coord", axis=axis, value=value)
 				else:
 					attrs = [
 						("axis", axis),
-						("min", fl2str(minValue, 14)),
-						("value", fl2str(value, 14)),
-						("max", fl2str(maxValue, 14)),
+						("min", minValue),
+						("value", value),
+						("max", maxValue),
 				        ]
 					writer.simpletag("coord", attrs)
 				writer.newline()
@@ -106,11 +101,11 @@ class TupleVariation(object):
 	def fromXML(self, name, attrs, _content):
 		if name == "coord":
 			axis = attrs["axis"]
-			value = str2fl(attrs["value"], 14)
+			value = float(attrs["value"])
 			defaultMinValue = min(value, 0.0)  # -0.3 --> -0.3; 0.7 --> 0.0
 			defaultMaxValue = max(value, 0.0)  # -0.3 -->  0.0; 0.7 --> 0.7
-			minValue = str2fl(attrs.get("min", defaultMinValue), 14)
-			maxValue = str2fl(attrs.get("max", defaultMaxValue), 14)
+			minValue = float(attrs.get("min", defaultMinValue))
+			maxValue = float(attrs.get("max", defaultMaxValue))
 			self.axes[axis] = (minValue, value, maxValue)
 		elif name == "delta":
 			if "pt" in attrs:
@@ -161,7 +156,7 @@ class TupleVariation(object):
 		result = []
 		for axis in axisTags:
 			_minValue, value, _maxValue = self.axes.get(axis, (0.0, 0.0, 0.0))
-			result.append(struct.pack(">h", fl2fi(value, 14)))
+			result.append(struct.pack(">h", floatToFixed(value, 14)))
 		return bytesjoin(result)
 
 	def compileIntermediateCoord(self, axisTags):
@@ -179,8 +174,8 @@ class TupleVariation(object):
 		maxCoords = []
 		for axis in axisTags:
 			minValue, value, maxValue = self.axes.get(axis, (0.0, 0.0, 0.0))
-			minCoords.append(struct.pack(">h", fl2fi(minValue, 14)))
-			maxCoords.append(struct.pack(">h", fl2fi(maxValue, 14)))
+			minCoords.append(struct.pack(">h", floatToFixed(minValue, 14)))
+			maxCoords.append(struct.pack(">h", floatToFixed(maxValue, 14)))
 		return bytesjoin(minCoords + maxCoords)
 
 	@staticmethod
@@ -188,7 +183,7 @@ class TupleVariation(object):
 		coord = {}
 		pos = offset
 		for axis in axisTags:
-			coord[axis] = fi2fl(struct.unpack(">h", data[pos:pos+2])[0], 14)
+			coord[axis] = fixedToFloat(struct.unpack(">h", data[pos:pos+2])[0], 14)
 			pos += 2
 		return coord, pos
 
@@ -275,7 +270,7 @@ class TupleVariation(object):
 			else:
 				points = array.array("B")
 				pointsSize = numPointsInRun
-			points.frombytes(data[pos:pos+pointsSize])
+			points.fromstring(data[pos:pos+pointsSize])
 			if sys.byteorder != "big": points.byteswap()
 
 			assert len(points) == numPointsInRun
@@ -432,7 +427,7 @@ class TupleVariation(object):
 				else:
 					deltas = array.array("b")
 					deltasSize = numDeltasInRun
-				deltas.frombytes(data[pos:pos+deltasSize])
+				deltas.fromstring(data[pos:pos+deltasSize])
 				if sys.byteorder != "big": deltas.byteswap()
 				assert len(deltas) == numDeltasInRun
 				pos += deltasSize

@@ -2,20 +2,21 @@
 Conversion functions.
 """
 
+from __future__ import absolute_import, unicode_literals
 
 
 # adapted from the UFO spec
 
-def convertUFO1OrUFO2KerningToUFO3Kerning(kerning, groups, glyphSet=()):
+def convertUFO1OrUFO2KerningToUFO3Kerning(kerning, groups):
     # gather known kerning groups based on the prefixes
     firstReferencedGroups, secondReferencedGroups = findKnownKerningGroups(groups)
     # Make lists of groups referenced in kerning pairs.
     for first, seconds in list(kerning.items()):
-        if first in groups and first not in glyphSet:
+        if first in groups:
             if not first.startswith("public.kern1."):
                 firstReferencedGroups.add(first)
         for second in list(seconds.keys()):
-            if second in groups and second not in glyphSet:
+            if second in groups:
                 if not second.startswith("public.kern2."):
                     secondReferencedGroups.add(second)
     # Create new names for these groups.
@@ -154,7 +155,7 @@ def test():
     ...     "DGroup" : ["D"],
     ... }
     >>> kerning, groups, maps = convertUFO1OrUFO2KerningToUFO3Kerning(
-    ...     testKerning, testGroups, [])
+    ...     testKerning, testGroups)
     >>> expected = {
     ...     "A" : {
     ...         "A": 1,
@@ -220,7 +221,7 @@ def test():
     ...     "@MMK_R_XGroup" : ["X"],
     ... }
     >>> kerning, groups, maps = convertUFO1OrUFO2KerningToUFO3Kerning(
-    ...     testKerning, testGroups, [])
+    ...     testKerning, testGroups)
     >>> expected = {
     ...     "A" : {
     ...         "A": 1,
@@ -293,7 +294,7 @@ def test():
     ...     "DGroup" : ["D"],
     ... }
     >>> kerning, groups, maps = convertUFO1OrUFO2KerningToUFO3Kerning(
-    ...     testKerning, testGroups, [])
+    ...     testKerning, testGroups)
     >>> expected = {
     ...     "A" : {
     ...         "A": 1,

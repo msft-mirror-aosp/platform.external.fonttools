@@ -3,8 +3,9 @@ Instantiate a variation font.  Run, eg:
 
 $ fonttools varLib.mutator ./NotoSansArabic-VF.ttf wght=140 wdth=85
 """
-from fontTools.misc.fixedTools import floatToFixedToFloat, floatToFixed
-from fontTools.misc.roundTools import otRound
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
+from fontTools.misc.fixedTools import floatToFixedToFloat, otRound, floatToFixed
 from fontTools.pens.boundsPen import BoundsPen
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables import ttProgram
@@ -21,7 +22,6 @@ from fontTools.varLib.iup import iup_delta
 import fontTools.subset.cff
 import os.path
 import logging
-from io import BytesIO
 
 
 log = logging.getLogger("fontTools.varlib.mutator")
@@ -139,7 +139,7 @@ def interpolate_cff2_metrics(varfont, topDict, glyphOrder, loc):
 			lsb_delta = 0
 		else:
 			lsb = boundsPen.bounds[0]
-			lsb_delta = entry[1] - lsb
+		lsb_delta = entry[1] - lsb
 
 		if lsb_delta or width_delta:
 			if width_delta:
@@ -258,7 +258,7 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 		if not tableTag in varfont:
 			continue
 		table = varfont[tableTag].table
-		if not getattr(table, 'FeatureVariations', None):
+		if not hasattr(table, 'FeatureVariations'):
 			continue
 		variations = table.FeatureVariations
 		for record in variations.FeatureVariationRecord:
@@ -346,8 +346,14 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 		# Change maxp attributes as IDEF is added
 		if 'maxp' in varfont:
 			maxp = varfont['maxp']
-			setattr(maxp, "maxInstructionDefs", 1 + getattr(maxp, "maxInstructionDefs", 0))
-			setattr(maxp, "maxStackElements", max(len(loc), getattr(maxp, "maxStackElements", 0)))
+			if hasattr(maxp, "maxInstructionDefs"):
+				maxp.maxInstructionDefs += 1
+			else:
+				setattr(maxp, "maxInstructionDefs", 1)
+			if hasattr(maxp, "maxStackElements"):
+				maxp.maxStackElements = max(len(loc), maxp.maxStackElements)
+			else:
+				setattr(maxp, "maxInstructionDefs", len(loc))
 
 	if 'name' in varfont:
 		log.info("Pruning name table")
@@ -394,7 +400,6 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 
 
 def main(args=None):
-	"""Instantiate a variation font"""
 	from fontTools import configLogger
 	import argparse
 

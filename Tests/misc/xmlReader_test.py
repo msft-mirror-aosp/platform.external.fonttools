@@ -1,5 +1,7 @@
-from fontTools.misc.py23 import strjoin
-from io import BytesIO
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function, division, absolute_import, unicode_literals
+from fontTools.misc.py23 import *
 import os
 import unittest
 from fontTools.ttLib import TTFont

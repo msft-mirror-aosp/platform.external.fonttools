@@ -1,6 +1,6 @@
-###################################################################
-loggingTools: tools for interfacing with the Python logging package
-###################################################################
+############
+loggingTools
+############
 
 .. automodule:: fontTools.misc.loggingTools
    :members:

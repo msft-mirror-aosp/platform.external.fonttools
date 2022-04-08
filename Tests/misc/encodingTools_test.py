@@ -1,3 +1,5 @@
+from __future__ import print_function, division, absolute_import, unicode_literals
+from fontTools.misc.py23 import *
 import unittest
 from fontTools.misc.encodingTools import getEncoding
 
@@ -18,7 +20,7 @@ class EncodingTest(unittest.TestCase):
 	def test_extended_mac_encodings(self):
 		encoding = getEncoding(1, 1, 0) # Mac Japanese
 		decoded = b'\xfe'.decode(encoding)
-		self.assertEqual(decoded, chr(0x2122))
+		self.assertEqual(decoded, unichr(0x2122))
 
 	def test_extended_unknown(self):
 		self.assertEqual(getEncoding(10, 11, 12), None)

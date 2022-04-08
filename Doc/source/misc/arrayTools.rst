@@ -1,9 +1,7 @@
-#############################################
-arrayTools: Various array and rectangle tools
-#############################################
+##########
+arrayTools
+##########
 
 .. automodule:: fontTools.misc.arrayTools
-   :member-order: bysource
-   :inherited-members:
    :members:
    :undoc-members:

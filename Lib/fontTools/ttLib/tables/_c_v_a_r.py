@@ -1,4 +1,6 @@
-from fontTools.misc.py23 import bytesjoin
+from __future__ import \
+    print_function, division, absolute_import, unicode_literals
+from fontTools.misc.py23 import *
 from . import DefaultTable
 from fontTools.misc import sstruct
 from fontTools.ttLib.tables.TupleVariation import \

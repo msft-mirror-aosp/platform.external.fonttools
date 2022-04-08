@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#! /usr/bin/env python
 
 # Illustrates how a fonttools script can construct variable fonts.
 #
@@ -21,6 +21,8 @@
 # $ ./interpolate.py && open Roboto.ttf
 
 
+from __future__ import print_function, division, absolute_import
+from fontTools.misc.py23 import *
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.tables._n_a_m_e import NameRecord
 from fontTools.ttLib.tables._f_v_a_r import table__f_v_a_r, Axis, NamedInstance
