@@ -1,3 +1,80 @@
+4.33.3 (released 2022-04-26)
+----------------------------
+
+- [designspaceLib] Fixed typo in ``deepcopyExceptFonts`` method, preventing font
+  references to be transferred (#2600). Fixed another typo in the name of ``Range``
+  dataclass's ``__post_init__`` magic method (#2597).
+
+4.33.2 (released 2022-04-22)
+----------------------------
+
+- [otBase] Make logging less verbose when harfbuzz fails to serialize. Do not exit
+  at the first failure but continue attempting to fix offset overflow error using
+  the pure-python serializer even when the ``USE_HARFBUZZ_REPACKER`` option was
+  explicitly set to ``True``. This is normal with fonts with relatively large
+  tables, at least until hb.repack implements proper table splitting.
+
+4.33.1 (released 2022-04-22)
+----------------------------
+
+- [otlLib] Put back the ``FONTTOOLS_GPOS_COMPACT_MODE`` environment variable to fix
+  regression in ufo2ft (and thus fontmake) introduced with v4.33.0 (#2592, #2593).
+  This is deprecated and will be removed one ufo2ft gets updated to use the new
+  config setup.
+
+4.33.0 (released 2022-04-21)
+----------------------------
+
+- [OS/2 / merge] Automatically recalculate ``OS/2.xAvgCharWidth`` after merging
+  fonts with ``fontTools.merge`` (#2591, #2538).
+- [misc/config] Added ``fontTools.misc.configTools`` module, a generic configuration
+  system (#2416, #2439).  
+  Added ``fontTools.config`` module, a fontTools-specific configuration
+  system using ``configTools`` above.  
+  Attached a ``Config`` object to ``TTFont``.
+- [otlLib] Replaced environment variable for GPOS compression level with an
+  equivalent option using the new config system.
+- [designspaceLib] Incremented format version to 5.0 (#2436).  
+  Added discrete axes, variable fonts, STAT information, either design- or
+  user-space location on instances.  
+  Added ``fontTools.designspaceLib.split`` module to split a designspace
+  into sub-spaces that interpolate and that represent the variable fonts
+  listed in the document.  
+  Made instance names optional and allow computing them from STAT data instead.
+  Added ``fontTools.designspaceLib.statNames`` module.  
+  Allow instances to have the same location as a previously defined STAT label.  
+  Deprecated some attributes:  
+  ``SourceDescriptor``: ``copyLib``, ``copyInfo``, ``copyGroups``, ``copyFeatures``.  
+  ``InstanceDescriptor``: ``kerning``, ``info``; ``glyphs``: use rules or sparse
+  sources.  
+  For both, ``location``: use the more explicit designLocation.  
+  Note: all are soft deprecations and existing code should keep working.  
+  Updated documentation for Python methods and the XML format.
+- [varLib] Added ``build_many`` to build several variable fonts from a single
+  designspace document (#2436).  
+  Added ``fontTools.varLib.stat`` module to build STAT tables from a designspace
+  document.
+- [otBase] Try to use the Harfbuzz Repacker for packing GSUB/GPOS tables when
+  ``uharfbuzz`` python bindings are available (#2552). Disable it by setting the
+  "fontTools.ttLib.tables.otBase:USE_HARFBUZZ_REPACKER" config option to ``False``.
+  If the option is set explicitly to ``True`` but ``uharfbuzz`` can't be imported
+  or fails to serialize for any reasons, an error will be raised (ImportError or
+  uharfbuzz errors).
+- [CFF/T2] Ensure that ``pen.closePath()`` gets called for CFF2 charstrings (#2577).
+  Handle implicit CFF2 closePath within ``T2OutlineExtractor`` (#2580).
+
+4.32.0 (released 2022-04-08)
+----------------------------
+
+- [otlLib] Disable GPOS7 optimization to work around bug in Apple CoreText.
+  Always force Chaining GPOS8 for now (#2540).
+- [glifLib] Added ``outputImpliedClosingLine=False`` parameter to ``Glyph.draw()``,
+  to control behaviour of ``PointToSegmentPen`` (6b4e2e7).
+- [varLib.interpolatable] Check for wrong contour starting point (#2571).
+- [cffLib] Remove leftover ``GlobalState`` class and fix calls to ``TopDictIndex()``
+  (#2569, #2570).
+- [instancer] Clear ``AxisValueArray`` if it is empty after instantiating (#2563).
+
 4.31.2 (released 2022-03-22)
 ----------------------------
 
