@@ -5,9 +5,8 @@ Requires https://github.com/fonttools/skia-pathops
 
 import itertools
 import logging
-from typing import Callable, Iterable, Optional, Mapping
+from typing import Iterable, Optional, Mapping
 
-from fontTools.misc.roundTools import otRound
 from fontTools.ttLib import ttFont
 from fontTools.ttLib.tables import _g_l_y_f
 from fontTools.ttLib.tables import _h_m_t_x
@@ -17,10 +16,6 @@ import pathops
 
 
 __all__ = ["removeOverlaps"]
-
-
-class RemoveOverlapsError(Exception):
-    pass
 
 
 log = logging.getLogger("fontTools.ttLib.removeOverlaps")
@@ -81,49 +76,6 @@ def ttfGlyphFromSkPath(path: pathops.Path) -> _g_l_y_f.Glyph:
     return glyph
 
 
-def _round_path(
-    path: pathops.Path, round: Callable[[float], float] = otRound
-) -> pathops.Path:
-    rounded_path = pathops.Path()
-    for verb, points in path:
-        rounded_path.add(verb, *((round(p[0]), round(p[1])) for p in points))
-    return rounded_path
-
-
-def _simplify(path: pathops.Path, debugGlyphName: str) -> pathops.Path:
-    # skia-pathops has a bug where it sometimes fails to simplify paths when there
-    # are float coordinates and control points are very close to one another.
-    # Rounding coordinates to integers works around the bug.
-    # Since we are going to round glyf coordinates later on anyway, here it is
-    # ok(-ish) to also round before simplify. Better than failing the whole process
-    # for the entire font.
-    # https://bugs.chromium.org/p/skia/issues/detail?id=11958
-    # https://github.com/google/fonts/issues/3365
-    # TODO(anthrotype): remove once this Skia bug is fixed
-    try:
-        return pathops.simplify(path, clockwise=path.clockwise)
-    except pathops.PathOpsError:
-        pass
-
-    path = _round_path(path)
-    try:
-        path = pathops.simplify(path, clockwise=path.clockwise)
-        log.debug(
-            "skia-pathops failed to simplify '%s' with float coordinates, "
-            "but succeded using rounded integer coordinates",
-            debugGlyphName,
-        )
-        return path
-    except pathops.PathOpsError as e:
-        if log.isEnabledFor(logging.DEBUG):
-            path.dump()
-        raise RemoveOverlapsError(
-            f"Failed to remove overlaps from glyph {debugGlyphName!r}"
-        ) from e
-
-    raise AssertionError("Unreachable")
-
-
 def removeTTGlyphOverlaps(
     glyphName: str,
     glyphSet: _TTGlyphMapping,
@@ -141,7 +93,7 @@ def removeTTGlyphOverlaps(
         path = skPathFromGlyph(glyphName, glyphSet)
 
         # remove overlaps
-        path2 = _simplify(path, glyphName)
+        path2 = pathops.simplify(path, clockwise=path.clockwise)
 
         # replace TTGlyph if simplified path is different (ignoring contour order)
         if {tuple(c) for c in path.contours} != {tuple(c) for c in path2.contours}:
@@ -163,7 +115,6 @@ def removeOverlaps(
     font: ttFont.TTFont,
     glyphNames: Optional[Iterable[str]] = None,
     removeHinting: bool = True,
-    ignoreErrors=False,
 ) -> None:
     """Simplify glyphs in TTFont by merging overlapping contours.
 
@@ -181,8 +132,6 @@ def removeOverlaps(
         glyphNames: optional iterable of glyph names (str) to remove overlaps from.
             By default, all glyphs in the font are processed.
         removeHinting (bool): set to False to keep hinting for unmodified glyphs.
-        ignoreErrors (bool): set to True to ignore errors while removing overlaps,
-            thus keeping the tricky glyphs unchanged (fonttools/fonttools#2363).
     """
     try:
         glyfTable = font["glyf"]
@@ -210,15 +159,10 @@ def removeOverlaps(
     )
     modified = set()
     for glyphName in glyphNames:
-        try:
-            if removeTTGlyphOverlaps(
-                glyphName, glyphSet, glyfTable, hmtxTable, removeHinting
-            ):
-                modified.add(glyphName)
-        except RemoveOverlapsError:
-            if not ignoreErrors:
-                raise
-            log.error("Failed to remove overlaps for '%s'", glyphName)
+        if removeTTGlyphOverlaps(
+            glyphName, glyphSet, glyfTable, hmtxTable, removeHinting
+        ):
+            modified.add(glyphName)
 
     log.debug("Removed overlaps for %s glyphs:\n%s", len(modified), " ".join(modified))
 

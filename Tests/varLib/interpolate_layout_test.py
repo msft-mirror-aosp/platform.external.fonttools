@@ -61,11 +61,12 @@ class InterpolateLayoutTest(unittest.TestCase):
         lines = []
         with open(path, "r", encoding="utf-8") as ttx:
             for line in ttx.readlines():
-                # Elide ttFont attributes because ttLibVersion may change.
+                # Elide ttFont attributes because ttLibVersion may change,
+                # and use os-native line separators so we can run difflib.
                 if line.startswith("<ttFont "):
-                    lines.append("<ttFont>\n")
+                    lines.append("<ttFont>" + os.linesep)
                 else:
-                    lines.append(line.rstrip() + "\n")
+                    lines.append(line.rstrip() + os.linesep)
         return lines
 
     def expect_ttx(self, font, expected_ttx, tables):

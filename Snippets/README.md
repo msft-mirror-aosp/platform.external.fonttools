@@ -9,4 +9,3 @@ If you do and think your work is useful for others, please add a link to it here
 * https://github.com/googlei18n/nototools
 * https://github.com/googlefonts/fontbakery
 * https://github.com/Typefounding/setUseTypoMetricsFalse
-* https://github.com/ftCLI/ftCLI

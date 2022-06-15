@@ -23,7 +23,7 @@ from functools import singledispatch
 
 from fontTools.misc import etree
 
-from fontTools.misc.textTools import tostr
+from fontTools.misc.py23 import tostr
 
 
 # By default, we
@@ -151,7 +151,7 @@ PlistEncodable = Union[
     Data,
     datetime,
     float,
-    Integral,
+    int,
     Mapping[str, Any],
     Sequence[Any],
     str,

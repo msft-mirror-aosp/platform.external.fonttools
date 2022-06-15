@@ -1,5 +1,6 @@
+from fontTools.misc.py23 import bytechr, bytesjoin
 from fontTools.misc.testTools import FakeFont, getXML, parseXML
-from fontTools.misc.textTools import bytechr, bytesjoin, deHexStr, hexStr
+from fontTools.misc.textTools import deHexStr, hexStr
 from fontTools.ttLib import newTable
 import unittest
 

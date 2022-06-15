@@ -1,6 +1,7 @@
+from fontTools.misc.py23 import tostr
+
 from fontTools.pens.transformPen import TransformPen
 from fontTools.misc import etree
-from fontTools.misc.textTools import tostr
 from .parser import parse_path
 from .shapes import PathBuilder
 

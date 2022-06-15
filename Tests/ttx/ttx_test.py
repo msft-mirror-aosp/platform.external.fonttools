@@ -436,6 +436,12 @@ def test_options_b():
     tto = ttx.Options([("-b", "")], 1)
     assert tto.recalcBBoxes is False
 
+
+def test_options_a():
+    tto = ttx.Options([("-a", "")], 1)
+    assert tto.allowVID is True
+
+
 def test_options_e():
     tto = ttx.Options([("-e", "")], 1)
     assert tto.ignoreDecompileErrors is False
@@ -961,6 +967,10 @@ def test_main_keyboard_interrupt(tmpdir, monkeypatch, caplog):
     assert "(Cancelled.)" in caplog.text
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="waitForKeyPress function causes test to hang on Windows platform",
+)
 def test_main_system_exit(tmpdir, monkeypatch):
     with pytest.raises(SystemExit):
         inpath = os.path.join("Tests", "ttx", "data", "TestTTF.ttx")
@@ -987,6 +997,10 @@ def test_main_ttlib_error(tmpdir, monkeypatch, caplog):
     assert "Test error" in caplog.text
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="waitForKeyPress function causes test to hang on Windows platform",
+)
 def test_main_base_exception(tmpdir, monkeypatch, caplog):
     with pytest.raises(SystemExit):
         inpath = os.path.join("Tests", "ttx", "data", "TestTTF.ttx")

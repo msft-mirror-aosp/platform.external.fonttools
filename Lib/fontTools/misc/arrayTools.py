@@ -17,7 +17,7 @@ def calcBounds(array):
     Returns:
         A four-item tuple representing the bounding rectangle ``(xMin, yMin, xMax, yMax)``.
     """
-    if not array:
+    if len(array) == 0:
         return 0, 0, 0, 0
     xs = [x for x, y in array]
     ys = [y for x, y in array]

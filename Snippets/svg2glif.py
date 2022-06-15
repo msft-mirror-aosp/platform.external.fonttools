@@ -4,7 +4,7 @@
 
 __requires__ = ["fontTools"]
 
-from types import SimpleNamespace
+from fontTools.misc.py23 import SimpleNamespace
 from fontTools.svgLib import SVGPath
 
 from fontTools.pens.pointPen import SegmentToPointPen

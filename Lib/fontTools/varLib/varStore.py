@@ -5,6 +5,7 @@ from fontTools.varLib.builder import (buildVarRegionList, buildVarStore,
 				      buildVarRegion, buildVarData)
 from functools import partial
 from collections import defaultdict
+from array import array
 
 
 def _getLocationKey(loc):
@@ -374,10 +375,11 @@ class _Encoding(object):
 		as a VarData."""
 		c = 6
 		while chars:
-			if chars & 0b1111:
+			if chars & 3:
 				c += 2
-			chars >>= 4
+			chars >>= 2
 		return c
+
 
 	def _find_yourself_best_new_encoding(self, done_by_width):
 		self.best_new_encoding = None
@@ -403,31 +405,14 @@ class _EncodingDict(dict):
 	@staticmethod
 	def _row_characteristics(row):
 		"""Returns encoding characteristics for a row."""
-		longWords = False
-
 		chars = 0
 		i = 1
 		for v in row:
 			if v:
 				chars += i
 			if not (-128 <= v <= 127):
-				chars += i * 0b0010
-			if not (-32768 <= v <= 32767):
-				longWords = True
-				break
-			i <<= 4
-
-		if longWords:
-			# Redo; only allow 2byte/4byte encoding
-			chars = 0
-			i = 1
-			for v in row:
-				if v:
-					chars += i * 0b0011
-				if not (-32768 <= v <= 32767):
-					chars += i * 0b1100
-				i <<= 4
-
+				chars += i * 2
+			i <<= 2
 		return chars
 
 
@@ -438,7 +423,7 @@ def VarStore_optimize(self):
 	# Check that no two VarRegions are the same; if they are, fold them.
 
 	n = len(self.VarRegionList.Region) # Number of columns
-	zeroes = [0] * n
+	zeroes = array('h', [0]*n)
 
 	front_mapping = {} # Map from old VarIdxes to full row tuples
 
@@ -450,7 +435,7 @@ def VarStore_optimize(self):
 
 		for minor,item in enumerate(data.Item):
 
-			row = list(zeroes)
+			row = array('h', zeroes)
 			for regionIdx,v in zip(regionIndices, item):
 				row[regionIdx] += v
 			row = tuple(row)

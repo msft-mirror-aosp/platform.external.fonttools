@@ -1,3 +1,4 @@
+from fontTools.misc.py23 import bytesjoin
 from fontTools.misc import sstruct
 from fontTools.misc.textTools import safeEval
 from . import DefaultTable
@@ -75,13 +76,12 @@ class table__g_v_a_r(DefaultTable.DefaultTable):
 		result = [compiledHeader, compiledOffsets]
 		result.extend(sharedTuples)
 		result.extend(compiledGlyphs)
-		return b''.join(result)
+		return bytesjoin(result)
 
 	def compileGlyphs_(self, ttFont, axisTags, sharedCoordIndices):
 		result = []
-		glyf = ttFont['glyf']
 		for glyphName in ttFont.getGlyphOrder():
-			glyph = glyf[glyphName]
+			glyph = ttFont["glyf"][glyphName]
 			pointCount = self.getNumPoints_(glyph)
 			variations = self.variations.get(glyphName, [])
 			result.append(compileGlyph_(variations, pointCount,
@@ -99,10 +99,9 @@ class table__g_v_a_r(DefaultTable.DefaultTable):
 			axisTags, self.sharedTupleCount, data, self.offsetToSharedTuples)
 		self.variations = {}
 		offsetToData = self.offsetToGlyphVariationData
-		glyf = ttFont['glyf']
 		for i in range(self.glyphCount):
 			glyphName = glyphs[i]
-			glyph = glyf[glyphName]
+			glyph = ttFont["glyf"][glyphName]
 			numPointsInGlyph = self.getNumPoints_(glyph)
 			gvarData = data[offsetToData + offsets[i] : offsetToData + offsets[i + 1]]
 			try:
@@ -215,14 +214,12 @@ def compileGlyph_(variations, pointCount, axisTags, sharedCoordIndices):
 		variations, pointCount, axisTags, sharedCoordIndices)
 	if tupleVariationCount == 0:
 		return b""
-	result = [
-		struct.pack(">HH", tupleVariationCount, 4 + len(tuples)),
-		tuples,
-		data
-	]
-	if (len(tuples) + len(data)) % 2 != 0:
-		result.append(b"\0")  # padding
-	return b''.join(result)
+	result = (
+		struct.pack(">HH", tupleVariationCount, 4 + len(tuples)) + tuples + data
+	)
+	if len(result) % 2 != 0:
+		result = result + b"\0"  # padding
+	return result
 
 
 def decompileGlyph_(pointCount, sharedTuples, axisTags, data):

@@ -1,36 +1,18 @@
-from typing import Callable
 from fontTools.pens.basePen import BasePen
 
 
-def pointToString(pt, ntos=str):
-    return " ".join(ntos(i) for i in pt)
+def pointToString(pt):
+    return " ".join([str(i) for i in pt])
 
 
 class SVGPathPen(BasePen):
-    """ Pen to draw SVG path d commands.
 
-    Example::
-        >>> pen = SVGPathPen(None)
-        >>> pen.moveTo((0, 0))
-        >>> pen.lineTo((1, 1))
-        >>> pen.curveTo((2, 2), (3, 3), (4, 4))
-        >>> pen.closePath()
-        >>> pen.getCommands()
-        'M0 0 1 1C2 2 3 3 4 4Z'
-
-    Args:
-        glyphSet: a dictionary of drawable glyph objects keyed by name
-            used to resolve component references in composite glyphs.
-        ntos: a callable that takes a number and returns a string, to
-            customize how numbers are formatted (default: str).
-    """
-    def __init__(self, glyphSet, ntos: Callable[[float], str] = str):
+    def __init__(self, glyphSet):
         BasePen.__init__(self, glyphSet)
         self._commands = []
         self._lastCommand = None
         self._lastX = None
         self._lastY = None
-        self._ntos = ntos
 
     def _handleAnchor(self):
         """
@@ -61,7 +43,7 @@ class SVGPathPen(BasePen):
         ['M0 10']
         """
         self._handleAnchor()
-        t = "M%s" % (pointToString(pt, self._ntos))
+        t = "M%s" % (pointToString(pt))
         self._commands.append(t)
         self._lastCommand = "M"
         self._lastX, self._lastY = pt
@@ -109,19 +91,19 @@ class SVGPathPen(BasePen):
         # vertical line
         elif x == self._lastX:
             cmd = "V"
-            pts = self._ntos(y)
+            pts = str(y)
         # horizontal line
         elif y == self._lastY:
             cmd = "H"
-            pts = self._ntos(x)
+            pts = str(x)
         # previous was a moveto
         elif self._lastCommand == "M":
             cmd = None
-            pts = " " + pointToString(pt, self._ntos)
+            pts = " " + pointToString(pt)
         # basic
         else:
             cmd = "L"
-            pts = pointToString(pt, self._ntos)
+            pts = pointToString(pt)
         # write the string
         t = ""
         if cmd:
@@ -140,9 +122,9 @@ class SVGPathPen(BasePen):
         ['C10 20 30 40 50 60']
         """
         t = "C"
-        t += pointToString(pt1, self._ntos) + " "
-        t += pointToString(pt2, self._ntos) + " "
-        t += pointToString(pt3, self._ntos)
+        t += pointToString(pt1) + " "
+        t += pointToString(pt2) + " "
+        t += pointToString(pt3)
         self._commands.append(t)
         self._lastCommand = "C"
         self._lastX, self._lastY = pt3
@@ -153,16 +135,11 @@ class SVGPathPen(BasePen):
         >>> pen.qCurveTo((10, 20), (30, 40))
         >>> pen._commands
         ['Q10 20 30 40']
-        >>> from fontTools.misc.roundTools import otRound
-        >>> pen = SVGPathPen(None, ntos=lambda v: str(otRound(v)))
-        >>> pen.qCurveTo((3, 3), (7, 5), (11, 4))
-        >>> pen._commands
-        ['Q3 3 5 4', 'Q7 5 11 4']
         """
         assert pt2 is not None
         t = "Q"
-        t += pointToString(pt1, self._ntos) + " "
-        t += pointToString(pt2, self._ntos)
+        t += pointToString(pt1) + " "
+        t += pointToString(pt2)
         self._commands.append(t)
         self._lastCommand = "Q"
         self._lastX, self._lastY = pt2

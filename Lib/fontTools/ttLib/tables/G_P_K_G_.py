@@ -1,5 +1,6 @@
+from fontTools.misc.py23 import bytesjoin
 from fontTools.misc import sstruct
-from fontTools.misc.textTools import bytesjoin, safeEval, readHex
+from fontTools.misc.textTools import safeEval, readHex
 from . import DefaultTable
 import sys
 import array

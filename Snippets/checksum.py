@@ -29,7 +29,9 @@ def write_checksum(filepaths, stdout_write=False, use_ttx=False, include_tables=
             temp_ttx_path = path + ".ttx"
 
             tt = TTFont(path)
-            tt.saveXML(temp_ttx_path, skipTables=exclude_tables, tables=include_tables)
+            # important to keep the newlinestr value defined here as hash values will change across platforms
+            # if platform specific newline values are assumed
+            tt.saveXML(temp_ttx_path, newlinestr="\n", skipTables=exclude_tables, tables=include_tables)
             checksum_path = temp_ttx_path
         else:
             if include_tables is not None:

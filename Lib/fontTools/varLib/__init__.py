@@ -18,9 +18,9 @@ Then you can make a variable-font this way:
 
 API *will* change in near future.
 """
-from fontTools.misc.vector import Vector
+from fontTools.misc.py23 import Tag, tostr
 from fontTools.misc.roundTools import noRound, otRound
-from fontTools.misc.textTools import Tag, tostr
+from fontTools.misc.vector import Vector
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._f_v_a_r import Axis, NamedInstance
 from fontTools.ttLib.tables._g_l_y_f import GlyphCoordinates
@@ -212,7 +212,6 @@ def _add_stat(font, axes):
 	axes = [dict(tag=a.axisTag, name=a.axisNameID) for a in fvarTable.axes]
 	buildStatTable(font, axes)
 
-_MasterData = namedtuple('_MasterData', ['glyf', 'hMetrics', 'vMetrics'])
 
 def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 	if tolerance < 0:
@@ -224,18 +223,15 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 	glyf = font['glyf']
 	defaultMasterIndex = masterModel.reverseMapping[0]
 
-	master_datas = [_MasterData(m['glyf'],
-				    m['hmtx'].metrics,
-				    getattr(m.get('vmtx'), 'metrics', None))
-			for m in master_ttfs]
-
+	# use hhea.ascent of base master as default vertical origin when vmtx is missing
+	baseAscent = font['hhea'].ascent
 	for glyph in font.getGlyphOrder():
-		log.debug("building gvar for glyph '%s'", glyph)
+
 		isComposite = glyf[glyph].isComposite()
 
 		allData = [
-			m.glyf._getCoordinatesAndControls(glyph, m.hMetrics, m.vMetrics)
-			for m in master_datas
+			m["glyf"].getCoordinatesAndControls(glyph, m, defaultVerticalOrigin=baseAscent)
+			for m in master_ttfs
 		]
 
 		if allData[defaultMasterIndex][1].numberOfContours != 0:
@@ -288,9 +284,9 @@ def _add_gvar(font, masterModel, master_ttfs, tolerance=0.5, optimize=True):
 					var_opt = TupleVariation(support, delta_opt)
 
 					axis_tags = sorted(support.keys()) # Shouldn't matter that this is different from fvar...?
-					tupleData, auxData = var.compile(axis_tags)
+					tupleData, auxData, _ = var.compile(axis_tags, [], None)
 					unoptimized_len = len(tupleData) + len(auxData)
-					tupleData, auxData = var_opt.compile(axis_tags)
+					tupleData, auxData, _ = var_opt.compile(axis_tags, [], None)
 					optimized_len = len(tupleData) + len(auxData)
 
 					if optimized_len < unoptimized_len:
@@ -303,10 +299,9 @@ def _remove_TTHinting(font):
 	for tag in ("cvar", "cvt ", "fpgm", "prep"):
 		if tag in font:
 			del font[tag]
-	maxp = font['maxp']
 	for attr in ("maxTwilightPoints", "maxStorage", "maxFunctionDefs", "maxInstructionDefs", "maxStackElements", "maxSizeOfInstructions"):
-		setattr(maxp, attr, 0)
-	maxp.maxZones = 1
+		setattr(font["maxp"], attr, 0)
+	font["maxp"].maxZones = 1
 	font["glyf"].removeHinting()
 	# TODO: Modify gasp table to deactivate gridfitting for all ranges?
 
@@ -321,9 +316,12 @@ def _merge_TTHinting(font, masterModel, master_ttfs):
 
 	for tag in ("fpgm", "prep"):
 		all_pgms = [m[tag].program for m in master_ttfs if tag in m]
-		if not all_pgms:
+		if len(all_pgms) == 0:
 			continue
-		font_pgm = getattr(font.get(tag), 'program', None)
+		if tag in font:
+			font_pgm = font[tag].program
+		else:
+			font_pgm = Program()
 		if any(pgm != font_pgm for pgm in all_pgms):
 			log.warning("Masters have incompatible %s tables, hinting is discarded." % tag)
 			_remove_TTHinting(font)
@@ -331,17 +329,19 @@ def _merge_TTHinting(font, masterModel, master_ttfs):
 
 	# glyf table
 
-	font_glyf = font['glyf']
-	master_glyfs = [m['glyf'] for m in master_ttfs]
-	for name, glyph in font_glyf.glyphs.items():
+	for name, glyph in font["glyf"].glyphs.items():
 		all_pgms = [
-			getattr(glyf.get(name), 'program', None)
-			for glyf in master_glyfs
+			m["glyf"][name].program
+			for m in master_ttfs
+			if name in m['glyf'] and hasattr(m["glyf"][name], "program")
 		]
 		if not any(all_pgms):
 			continue
-		glyph.expand(font_glyf)
-		font_pgm = getattr(glyph, 'program', None)
+		glyph.expand(font["glyf"])
+		if hasattr(glyph, "program"):
+			font_pgm = glyph.program
+		else:
+			font_pgm = Program()
 		if any(pgm != font_pgm for pgm in all_pgms if pgm):
 			log.warning("Masters have incompatible glyph programs in glyph '%s', hinting is discarded." % name)
 			# TODO Only drop hinting from this glyph.

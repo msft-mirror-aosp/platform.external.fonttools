@@ -138,7 +138,7 @@ def interpolate_cff2_metrics(varfont, topDict, glyphOrder, loc):
 			# Happens with non-marking glyphs
 			lsb_delta = 0
 		else:
-			lsb = otRound(boundsPen.bounds[0])
+			lsb = boundsPen.bounds[0]
 			lsb_delta = entry[1] - lsb
 
 		if lsb_delta or width_delta:
@@ -185,8 +185,6 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 		log.info("Mutating glyf/gvar tables")
 		gvar = varfont['gvar']
 		glyf = varfont['glyf']
-		hMetrics = varfont['hmtx'].metrics
-		vMetrics = getattr(varfont.get('vmtx'), 'metrics', None)
 		# get list of glyph names in gvar sorted by component depth
 		glyphnames = sorted(
 			gvar.variations.keys(),
@@ -196,7 +194,7 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 				name))
 		for glyphname in glyphnames:
 			variations = gvar.variations[glyphname]
-			coordinates, _ = glyf._getCoordinatesAndControls(glyphname, hMetrics, vMetrics)
+			coordinates, _ = glyf.getCoordinatesAndControls(glyphname, varfont)
 			origCoords, endPts = None, None
 			for var in variations:
 				scalar = supportScalar(loc, var.axes)
@@ -204,10 +202,10 @@ def instantiateVariableFont(varfont, location, inplace=False, overlap=True):
 				delta = var.coordinates
 				if None in delta:
 					if origCoords is None:
-						origCoords, g = glyf._getCoordinatesAndControls(glyphname, hMetrics, vMetrics)
+						origCoords, g = glyf.getCoordinatesAndControls(glyphname, varfont)
 					delta = iup_delta(delta, origCoords, g.endPts)
 				coordinates += GlyphCoordinates(delta) * scalar
-			glyf._setCoordinates(glyphname, coordinates, hMetrics, vMetrics)
+			glyf.setCoordinates(glyphname, coordinates, varfont)
 	else:
 		glyf = None
 

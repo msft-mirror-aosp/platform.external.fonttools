@@ -11,31 +11,16 @@ lookups, coverage tables and so on.
 High-level OpenType Layout Lookup Builders
 ------------------------------------------
 
-.. currentmodule:: fontTools.otlLib.builder
-
-.. autoclass:: AlternateSubstBuilder
-.. autoclass:: ChainContextPosBuilder
-.. autoclass:: ChainContextSubstBuilder
-.. autoclass:: LigatureSubstBuilder
-.. autoclass:: MultipleSubstBuilder
-.. autoclass:: CursivePosBuilder
-.. autoclass:: MarkBasePosBuilder
-.. autoclass:: MarkLigPosBuilder
-.. autoclass:: MarkMarkPosBuilder
-.. autoclass:: ReverseChainSingleSubstBuilder
-.. autoclass:: SingleSubstBuilder
-.. autoclass:: ClassPairPosSubtableBuilder
-.. autoclass:: PairPosBuilder
-.. autoclass:: SinglePosBuilder
+.. automodule:: fontTools.otlLib.builder
+   :members: AlternateSubstBuilder, ChainContextPosBuilder, ChainContextSubstBuilder, LigatureSubstBuilder, MultipleSubstBuilder, CursivePosBuilder, MarkBasePosBuilder, MarkLigPosBuilder, MarkMarkPosBuilder, ReverseChainSingleSubstBuilder, SingleSubstBuilder, ClassPairPosSubtableBuilder, PairPosBuilder, SinglePosBuilder
+   :member-order: bysource
 
 --------------------------------------
 Common OpenType Layout Data Structures
 --------------------------------------
 
-.. currentmodule:: fontTools.otlLib.builder
-
-.. autofunction:: buildCoverage
-.. autofunction:: buildLookup
+.. automodule:: fontTools.otlLib.builder
+   :members: buildCoverage, buildLookup
 
 ------------------------------------
 Low-level GSUB Table Lookup Builders
@@ -44,12 +29,8 @@ Low-level GSUB Table Lookup Builders
 These functions deal with the "simple" lookup types. See above for classes to
 help build more complex lookups (contextual and chaining lookups).
 
-.. currentmodule:: fontTools.otlLib.builder
-
-.. autofunction:: buildSingleSubstSubtable
-.. autofunction:: buildMultipleSubstSubtable
-.. autofunction:: buildAlternateSubstSubtable
-.. autofunction:: buildLigatureSubstSubtable
+.. automodule:: fontTools.otlLib.builder
+   :members: buildSingleSubstSubtable, buildMultipleSubstSubtable, buildAlternateSubstSubtable, buildLigatureSubstSubtable
 
 --------------------------
 GPOS Shared Table Builders
@@ -59,13 +40,9 @@ The functions help build the `GPOS shared tables <https://docs.microsoft.com/en-
 as defined in the OpenType spec: value records, anchors, mark arrays and
 mark record tables.
 
-.. currentmodule:: fontTools.otlLib.builder
-.. autofunction:: buildValue
-.. autofunction:: buildAnchor
-.. autofunction:: buildMarkArray
-.. autofunction:: buildDevice
-.. autofunction:: buildBaseArray
-.. autofunction:: buildComponentRecord
+.. automodule:: fontTools.otlLib.builder
+   :members: buildValue, buildAnchor, buildMarkArray, buildDevice, buildBaseArray, buildComponentRecord, buildMarkArray, buildValue
+   :member-order: bysource
 
 ------------------------------------
 Low-level GPOS Table Lookup Builders
@@ -74,19 +51,9 @@ Low-level GPOS Table Lookup Builders
 These functions deal with the "simple" lookup types. See above for classes to
 help build more complex lookups (contextual and chaining lookups).
 
-.. currentmodule:: fontTools.otlLib.builder
-
-.. autofunction:: buildCursivePosSubtable
-.. autofunction:: buildLigatureArray
-.. autofunction:: buildMarkBasePos
-.. autofunction:: buildMarkBasePosSubtable
-.. autofunction:: buildMarkLigPos
-.. autofunction:: buildMarkLigPosSubtable
-.. autofunction:: buildPairPosClassesSubtable
-.. autofunction:: buildPairPosGlyphs
-.. autofunction:: buildPairPosGlyphsSubtable
-.. autofunction:: buildSinglePos
-.. autofunction:: buildSinglePosSubtable
+.. automodule:: fontTools.otlLib.builder
+   :members: buildCursivePosSubtable, buildLigatureArray, buildMarkBasePos, buildMarkBasePosSubtable, buildMarkLigPos, buildMarkLigPosSubtable, buildPairPosClassesSubtable, buildPairPosGlyphs, buildPairPosGlyphsSubtable, buildSinglePos, buildSinglePosSubtable
+   :member-order: bysource
 
 ----------------------------
 GDEF Table Subtable Builders
@@ -94,16 +61,14 @@ GDEF Table Subtable Builders
 
 These functions build subtables for elements of the ``GDEF`` table.
 
-.. currentmodule:: fontTools.otlLib.builder
-
-.. autofunction:: buildAttachList
-.. autofunction:: buildLigCaretList
-.. autofunction:: buildMarkGlyphSetsDef
+.. automodule:: fontTools.otlLib.builder
+   :members: buildAttachList, buildLigCaretList, buildMarkGlyphSetsDef
+   :member-order: bysource
 
 ------------------
 STAT Table Builder
 ------------------
 
-.. currentmodule:: fontTools.otlLib.builder
-
-.. autofunction:: buildStatTable
+.. automodule:: fontTools.otlLib.builder
+   :members: buildStatTable
+   :member-order: bysource

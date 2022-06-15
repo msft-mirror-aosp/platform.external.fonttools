@@ -104,7 +104,7 @@ class ProgramTest(unittest.TestCase):
         p.fromBytecode(BYTECODE)
         ttfont = TestFont()
         buf = StringIO()
-        writer = XMLWriter(buf)
+        writer = XMLWriter(buf, newlinestr='\n')
         try:
             p.toXML(writer, ttfont)
         finally:
