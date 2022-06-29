@@ -124,6 +124,10 @@ extras_require = {
 	"pathops": [
 		"skia-pathops >= 0.5.0",
 	],
+	# for packing GSUB/GPOS tables with Harfbuzz repacker
+	"repacker": [
+		"uharfbuzz >= 0.23.0",
+	],
 }
 # use a special 'all' key as shorthand to includes all the extra dependencies
 extras_require["all"] = sum(extras_require.values(), [])
@@ -439,7 +443,7 @@ if ext_modules:
 
 setup_params = dict(
 	name="fonttools",
-	version="4.31.2",
+	version="4.33.3",
 	description="Tools to manipulate font files",
 	author="Just van Rossum",
 	author_email="just@letterror.com",
