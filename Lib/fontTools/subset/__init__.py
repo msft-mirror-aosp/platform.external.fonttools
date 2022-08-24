@@ -10,9 +10,11 @@ from fontTools.ttLib.tables.otBase import USE_HARFBUZZ_REPACKER
 from fontTools.otlLib.maxContextCalc import maxCtxFont
 from fontTools.pens.basePen import NullPen
 from fontTools.misc.loggingTools import Timer
+from fontTools.misc.cliTools import makeOutputFileName
 from fontTools.subset.util import _add_method, _uniq_sort
 from fontTools.subset.cff import *
 from fontTools.subset.svg import *
+from fontTools.varLib import varStore  # for subset_varidxes
 import sys
 import struct
 import array
@@ -636,10 +638,16 @@ def prune_post_subset(self, font, options):
 			self.Value.prune_hints()
 		self.ValueFormat = self.Value.getEffectiveFormat()
 	elif self.Format == 2:
-		if not options.hinting:
-			for v in self.Value:
-				v.prune_hints()
-		self.ValueFormat = reduce(int.__or__, [v.getEffectiveFormat() for v in self.Value], 0)
+		if None in self.Value:
+			assert self.ValueFormat == 0
+			assert all(v is None for v in self.Value)
+		else:
+			if not options.hinting:
+				for v in self.Value:
+					v.prune_hints()
+			self.ValueFormat = reduce(
+				int.__or__, [v.getEffectiveFormat() for v in self.Value], 0
+			)
 
 	# Downgrade to Format 1 if all ValueRecords are the same
 	if self.Format == 2 and all(v == self.Value[0] for v in self.Value):
@@ -2608,6 +2616,9 @@ class Options(object):
 		'vertical': ['valt', 'vert', 'vkrn', 'vpal', 'vrt2'],
 		'ltr': ['ltra', 'ltrm'],
 		'rtl': ['rtla', 'rtlm'],
+		'rand': ['rand'],
+		'justify': ['jalt'],
+		'private': ['Harf', 'HARF', 'Buzz', 'BUZZ'],
 		# Complex shapers
 		'arabic': ['init', 'medi', 'fina', 'isol', 'med2', 'fin2', 'fin3',
 			   'cswh', 'mset', 'stch'],
@@ -3180,12 +3191,7 @@ def main(args=None):
 	font = load_font(fontfile, options, dontLoadGlyphNames=dontLoadGlyphNames)
 
 	if outfile is None:
-		basename, _ = splitext(fontfile)
-		if options.flavor is not None:
-			ext = "." + options.flavor.lower()
-		else:
-			ext = ".ttf" if font.sfntVersion == "\0\1\0\0" else ".otf"
-		outfile = basename + ".subset" + ext
+		outfile = makeOutputFileName(fontfile, overWrite=True, suffix=".subset")
 
 	with timer("compile glyph list"):
 		if wildcard_glyphs:
