@@ -19,7 +19,7 @@ def test_instance_getStatNames(datadir):
 def test_not_all_ordering_specified_and_translations(datadir):
     doc = DesignSpaceDocument.fromfile(datadir / "test_v5.designspace")
 
-    assert getStatNames(doc, {"weight": 200, "width": 125, "Italic": 1}) == StatNames(
+    assert getStatNames(doc, {"Weight": 200, "Width": 125, "Italic": 1}) == StatNames(
         familyNames={
             "en": "MasterFamilyName",
             "fr": "Montserrat",
@@ -58,4 +58,21 @@ def test_detect_ribbi_aktiv(datadir):
         postScriptFontName="AktivGrotesk-CdBoldItalic",
         styleMapFamilyNames={"en": "Aktiv Grotesk Cd"},
         styleMapStyleName="bold italic",
+    )
+
+
+def test_getStatNames_on_ds4_doesnt_make_up_bad_names(datadir):
+    """See this issue on GitHub: https://github.com/googlefonts/ufo2ft/issues/630
+
+    When as in the example, there's no STAT data present, the getStatName
+    shouldn't try making up a postscript name.
+    """
+    doc = DesignSpaceDocument.fromfile(datadir / "DS5BreakTest.designspace")
+
+    assert getStatNames(doc, {"Weight": 600, "Width": 125, "Italic": 1}) == StatNames(
+        familyNames={"en": "DS5BreakTest"},
+        styleNames={},
+        postScriptFontName=None,
+        styleMapFamilyNames={},
+        styleMapStyleName=None,
     )
