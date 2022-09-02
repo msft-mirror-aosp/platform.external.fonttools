@@ -819,13 +819,20 @@ class SubsetTest:
             if not have_uharfbuzz:
                 pytest.skip("uharfbuzz is not installed")
             if not ok:
-                # pretend hb.repack returns an error
+                # pretend hb.repack/repack_with_tag return an error
                 import uharfbuzz as hb
 
                 def mock_repack(data, obj_list):
                     raise hb.RepackerError("mocking")
 
                 monkeypatch.setattr(hb, "repack", mock_repack)
+
+                if hasattr(hb, "repack_with_tag"):  # uharfbuzz >= 0.30.0
+
+                    def mock_repack_with_tag(tag, data, obj_list):
+                        raise hb.RepackerError("mocking")
+
+                    monkeypatch.setattr(hb, "repack_with_tag", mock_repack_with_tag)
         else:
             if have_uharfbuzz:
                 # pretend uharfbuzz is not installed
@@ -879,8 +886,8 @@ class SubsetTest:
         # test we emit a log.error if hb.repack fails (and we don't if successful)
         assert (
                 (
-                "hb.repack failed to serialize 'GSUB', reverting to "
-                "pure-python serializer; the error message was: RepackerError: mocking"
+                "hb.repack failed to serialize 'GSUB', attempting fonttools resolutions "
+                "; the error message was: RepackerError: mocking"
             ) in caplog.text
         ) ^ ok
 
@@ -953,7 +960,8 @@ def test_subset_feature_variations_drop_all(featureVarsTestFont):
 # https://github.com/fonttools/fonttools/issues/1881#issuecomment-619415044
 
 
-def test_subset_single_pos_format():
+@pytest.fixture
+def singlepos2_font():
     fb = FontBuilder(unitsPerEm=1000)
     fb.setupGlyphOrder([".notdef", "a", "b", "c"])
     fb.setupCharacterMap({ord("a"): "a", ord("b"): "b", ord("c"): "c"})
@@ -971,8 +979,11 @@ def test_subset_single_pos_format():
     fb.save(buf)
     buf.seek(0)
 
-    font = TTFont(buf)
+    return TTFont(buf)
 
+
+def test_subset_single_pos_format(singlepos2_font):
+    font = singlepos2_font
     # The input font has a SinglePos Format 2 subtable where each glyph has
     # different ValueRecords
     assert getXML(font["GPOS"].table.LookupList.Lookup[0].toXML, font) == [
@@ -1016,6 +1027,46 @@ def test_subset_single_pos_format():
         '    <Value XAdvance="-50"/>',
         '  </SinglePos>',
         '</Lookup>',
+    ]
+
+def test_subset_single_pos_format2_all_None(singlepos2_font):
+    # https://github.com/fonttools/fonttools/issues/2602
+    font = singlepos2_font
+    gpos = font["GPOS"].table
+    subtable = gpos.LookupList.Lookup[0].SubTable[0]
+    assert subtable.Format == 2
+    # Hack a SinglePosFormat2 with ValueFormat = 0; our own buildSinglePos
+    # never makes these as a SinglePosFormat1 is more compact, but they can
+    # be found in the wild.
+    subtable.Value = [None] * subtable.ValueCount
+    subtable.ValueFormat = 0
+
+    assert getXML(subtable.toXML, font) == [
+        '<SinglePos Format="2">',
+        '  <Coverage>',
+        '    <Glyph value="a"/>',
+        '    <Glyph value="b"/>',
+        '    <Glyph value="c"/>',
+        '  </Coverage>',
+        '  <ValueFormat value="0"/>',
+        '  <!-- ValueCount=3 -->',
+        '</SinglePos>',
+    ]
+
+    options = subset.Options()
+    subsetter = subset.Subsetter(options)
+    subsetter.populate(unicodes=[ord("a"), ord("c")])
+    subsetter.subset(font)
+
+    # Check it was downgraded to Format1 after subsetting
+    assert getXML(font["GPOS"].table.LookupList.Lookup[0].SubTable[0].toXML, font) == [
+        '<SinglePos Format="1">',
+        '  <Coverage>',
+        '    <Glyph value="a"/>',
+        '    <Glyph value="c"/>',
+        '  </Coverage>',
+        '  <ValueFormat value="0"/>',
+        '</SinglePos>',
     ]
 
 
@@ -1426,7 +1477,7 @@ def test_subset_svg_missing_lxml(ttf_path):
     font["SVG "].docList = [('<svg><g id="glyph1"/></svg>', 1, 1)]
     font.save(ttf_path)
 
-    with pytest.raises(ModuleNotFoundError):
+    with pytest.raises(ImportError):
         subset.main([str(ttf_path), "--gids=0,1"])
 
 
