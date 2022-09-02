@@ -5,9 +5,9 @@ create full instances (i.e. static fonts) from variable fonts, as well as "parti
 variable fonts that only contain a subset of the original variation space.
 
 For example, if you wish to pin the width axis to a given location while also
-restricting the weight axis to 400..700 range, you can do:
+restricting the weight axis to 400..700 range, you can do::
 
-$ fonttools varLib.instancer ./NotoSans-VF.ttf wdth=85 wght=400:700
+    $ fonttools varLib.instancer ./NotoSans-VF.ttf wdth=85 wght=400:700
 
 See `fonttools varLib.instancer --help` for more info on the CLI options.
 
@@ -17,7 +17,7 @@ and returns a new TTFont representing either a partial VF, or full instance if a
 the VF axes were given an explicit coordinate.
 
 E.g. here's how to pin the wght axis at a given location in a wght+wdth variable
-font, keeping only the deltas associated with the wdth axis:
+font, keeping only the deltas associated with the wdth axis::
 
 | >>> from fontTools import ttLib
 | >>> from fontTools.varLib import instancer
@@ -53,12 +53,17 @@ whereas mutator implicitly drops the axis at its default coordinate.
 
 The module currently supports only the first three "levels" of partial instancing,
 with the rest planned to be implemented in the future, namely:
-L1) dropping one or more axes while leaving the default tables unmodified;
-L2) dropping one or more axes while pinning them at non-default locations;
-L3) restricting the range of variation of one or more axes, by setting either
+
+L1
+    dropping one or more axes while leaving the default tables unmodified;
+L2
+    dropping one or more axes while pinning them at non-default locations;
+L3
+    restricting the range of variation of one or more axes, by setting either
     a new minimum or maximum, potentially -- though not necessarily -- dropping
     entire regions of variations that fall completely outside this new range.
-L4) moving the default location of an axis.
+L4
+    moving the default location of an axis.
 
 Currently only TrueType-flavored variable fonts (i.e. containing 'glyf' table)
 are supported, but support for CFF2 variable fonts will be added soon.
@@ -85,12 +90,11 @@ from fontTools.varLib import builder
 from fontTools.varLib.mvar import MVAR_ENTRIES
 from fontTools.varLib.merger import MutatorMerger
 from fontTools.varLib.instancer import names
-from contextlib import contextmanager
+from fontTools.misc.cliTools import makeOutputFileName
 import collections
 from copy import deepcopy
 from enum import IntEnum
 import logging
-from itertools import islice
 import os
 import re
 
@@ -127,6 +131,7 @@ class OverlapMode(IntEnum):
     KEEP_AND_DONT_SET_FLAGS = 0
     KEEP_AND_SET_FLAGS = 1
     REMOVE = 2
+    REMOVE_AND_IGNORE_ERRORS = 3
 
 
 def instantiateTupleVariationStore(
@@ -156,7 +161,7 @@ def instantiateTupleVariationStore(
         axisLimits: Dict[str, Union[float, NormalizedAxisRange]]: axes' coordinates for
             the full or partial instance, or ranges for restricting an axis' min/max.
         origCoords: GlyphCoordinates: default instance's coordinates for computing 'gvar'
-            inferred points (cf. table__g_l_y_f.getCoordinatesAndControls).
+            inferred points (cf. table__g_l_y_f._getCoordinatesAndControls).
         endPts: List[int]: indices of contour end points, for inferring 'gvar' deltas.
 
     Returns:
@@ -323,14 +328,13 @@ def limitTupleVariationAxisRange(var, axisTag, axisRange):
         return [var, newVar]
 
 
-def instantiateGvarGlyph(varfont, glyphname, axisLimits, optimize=True):
-    glyf = varfont["glyf"]
-    coordinates, ctrl = glyf.getCoordinatesAndControls(glyphname, varfont)
+def _instantiateGvarGlyph(
+    glyphname, glyf, gvar, hMetrics, vMetrics, axisLimits, optimize=True
+):
+    coordinates, ctrl = glyf._getCoordinatesAndControls(glyphname, hMetrics, vMetrics)
     endPts = ctrl.endPts
 
-    gvar = varfont["gvar"]
-    # when exporting to TTX, a glyph with no variations is omitted; thus when loading
-    # a TTFont from TTX, a glyph that's present in glyf table may be missing from gvar.
+    # Not every glyph may have variations
     tupleVarStore = gvar.variations.get(glyphname)
 
     if tupleVarStore:
@@ -341,7 +345,7 @@ def instantiateGvarGlyph(varfont, glyphname, axisLimits, optimize=True):
         if defaultDeltas:
             coordinates += _g_l_y_f.GlyphCoordinates(defaultDeltas)
 
-    # setCoordinates also sets the hmtx/vmtx advance widths and sidebearings from
+    # _setCoordinates also sets the hmtx/vmtx advance widths and sidebearings from
     # the four phantom points and glyph bounding boxes.
     # We call it unconditionally even if a glyph has no variations or no deltas are
     # applied at this location, in case the glyph's xMin and in turn its sidebearing
@@ -350,7 +354,7 @@ def instantiateGvarGlyph(varfont, glyphname, axisLimits, optimize=True):
     # gvar table is empty; however, the composite's base glyph may have deltas
     # applied, hence the composite's bbox and left/top sidebearings may need updating
     # in the instanced font.
-    glyf.setCoordinates(glyphname, coordinates, varfont)
+    glyf._setCoordinates(glyphname, coordinates, hMetrics, vMetrics)
 
     if not tupleVarStore:
         if glyphname in gvar.variations:
@@ -363,11 +367,25 @@ def instantiateGvarGlyph(varfont, glyphname, axisLimits, optimize=True):
             var.optimize(coordinates, endPts, isComposite)
 
 
+def instantiateGvarGlyph(varfont, glyphname, axisLimits, optimize=True):
+    """Remove?
+    https://github.com/fonttools/fonttools/pull/2266"""
+    gvar = varfont["gvar"]
+    glyf = varfont["glyf"]
+    hMetrics = varfont["hmtx"].metrics
+    vMetrics = getattr(varfont.get("vmtx"), "metrics", None)
+    _instantiateGvarGlyph(
+        glyphname, glyf, gvar, hMetrics, vMetrics, axisLimits, optimize=optimize
+    )
+
+
 def instantiateGvar(varfont, axisLimits, optimize=True):
     log.info("Instantiating glyf/gvar tables")
 
     gvar = varfont["gvar"]
     glyf = varfont["glyf"]
+    hMetrics = varfont["hmtx"].metrics
+    vMetrics = getattr(varfont.get("vmtx"), "metrics", None)
     # Get list of glyph names sorted by component depth.
     # If a composite glyph is processed before its base glyph, the bounds may
     # be calculated incorrectly because deltas haven't been applied to the
@@ -382,7 +400,9 @@ def instantiateGvar(varfont, axisLimits, optimize=True):
         ),
     )
     for glyphname in glyphnames:
-        instantiateGvarGlyph(varfont, glyphname, axisLimits, optimize=optimize)
+        _instantiateGvarGlyph(
+            glyphname, glyf, gvar, hMetrics, vMetrics, axisLimits, optimize=optimize
+        )
 
     if not gvar.variations:
         del varfont["gvar"]
@@ -472,7 +492,7 @@ def _instantiateVHVAR(varfont, axisLimits, tableFields):
         # or AdvHeightMap. If a direct, implicit glyphID->VariationIndex mapping is
         # used for advances, skip re-optimizing and maintain original VariationIndex.
         if getattr(vhvar, tableFields.advMapping):
-            varIndexMapping = varStore.optimize()
+            varIndexMapping = varStore.optimize(use_NO_VARIATION_INDEX=False)
             glyphOrder = varfont.getGlyphOrder()
             _remapVarIdxMap(vhvar, tableFields.advMapping, varIndexMapping, glyphOrder)
             if getattr(vhvar, tableFields.sb1):  # left or top sidebearings
@@ -620,6 +640,7 @@ def instantiateItemVariationStore(itemVarStore, fvarAxes, axisLimits):
         for major, deltas in enumerate(defaultDeltaArray)
         for minor, delta in enumerate(deltas)
     }
+    defaultDeltas[itemVarStore.NO_VARIATION_INDEX] = 0
     return defaultDeltas
 
 
@@ -732,23 +753,7 @@ def _limitFeatureVariationConditionRange(condition, axisRange):
 
     values = [minValue, maxValue]
     for i, value in enumerate(values):
-        if value < 0:
-            if axisRange.minimum == 0:
-                newValue = 0
-            else:
-                newValue = value / abs(axisRange.minimum)
-                if newValue <= -1.0:
-                    newValue = -1.0
-        elif value > 0:
-            if axisRange.maximum == 0:
-                newValue = 0
-            else:
-                newValue = value / axisRange.maximum
-                if newValue >= 1.0:
-                    newValue = 1.0
-        else:
-            newValue = 0
-        values[i] = newValue
+        values[i] = normalizeValue(value, (axisRange.minimum, 0, axisRange.maximum))
 
     return AxisRange(*values)
 
@@ -793,12 +798,12 @@ def _instantiateFeatureVariationRecord(
     return applies, shouldKeep
 
 
-def _limitFeatureVariationRecord(record, axisRanges, fvarAxes):
+def _limitFeatureVariationRecord(record, axisRanges, axisOrder):
     newConditions = []
     for i, condition in enumerate(record.ConditionSet.ConditionTable):
         if condition.Format == 1:
             axisIdx = condition.AxisIndex
-            axisTag = fvarAxes[axisIdx].axisTag
+            axisTag = axisOrder[axisIdx]
             if axisTag in axisRanges:
                 axisRange = axisRanges[axisTag]
                 newRange = _limitFeatureVariationConditionRange(condition, axisRange)
@@ -842,7 +847,7 @@ def _instantiateFeatureVariations(table, fvarAxes, axisLimits):
             record, i, location, fvarAxes, axisIndexMap
         )
         if shouldKeep:
-            shouldKeep = _limitFeatureVariationRecord(record, axisRanges, fvarAxes)
+            shouldKeep = _limitFeatureVariationRecord(record, axisRanges, axisOrder)
 
         if shouldKeep and _featureVariationRecordIsUnique(record, uniqueRecords):
             newRecords.append(record)
@@ -925,24 +930,16 @@ def instantiateAvar(varfont, axisLimits):
             )
             newMapping = {}
             for fromCoord, toCoord in mapping.items():
-                if fromCoord < 0:
-                    if axisRange.minimum == 0 or fromCoord < axisRange.minimum:
-                        continue
-                    else:
-                        fromCoord /= abs(axisRange.minimum)
-                elif fromCoord > 0:
-                    if axisRange.maximum == 0 or fromCoord > axisRange.maximum:
-                        continue
-                    else:
-                        fromCoord /= axisRange.maximum
-                if toCoord < 0:
-                    assert mappedMin != 0
-                    assert toCoord >= mappedMin
-                    toCoord /= abs(mappedMin)
-                elif toCoord > 0:
-                    assert mappedMax != 0
-                    assert toCoord <= mappedMax
-                    toCoord /= mappedMax
+
+                if fromCoord < axisRange.minimum or fromCoord > axisRange.maximum:
+                    continue
+                fromCoord = normalizeValue(
+                    fromCoord, (axisRange.minimum, 0, axisRange.maximum)
+                )
+
+                assert mappedMin <= toCoord <= mappedMax
+                toCoord = normalizeValue(toCoord, (mappedMin, 0, mappedMax))
+
                 fromCoord = floatToFixedToFloat(fromCoord, 14)
                 toCoord = floatToFixedToFloat(toCoord, 14)
                 newMapping[fromCoord] = toCoord
@@ -1011,8 +1008,11 @@ def instantiateSTAT(varfont, axisLimits):
 
     log.info("Instantiating STAT table")
     newAxisValueTables = axisValuesFromAxisLimits(stat, axisLimits)
-    stat.AxisValueArray.AxisValue = newAxisValueTables
-    stat.AxisValueCount = len(stat.AxisValueArray.AxisValue)
+    stat.AxisValueCount = len(newAxisValueTables)
+    if stat.AxisValueCount:
+        stat.AxisValueArray.AxisValue = newAxisValueTables
+    else:
+        stat.AxisValueArray = None
 
 
 def axisValuesFromAxisLimits(stat, axisLimits):
@@ -1163,7 +1163,8 @@ def instantiateVariableFont(
             If the value is `None`, the default coordinate as per 'fvar' table for
             that axis is used.
             The limit values can also be (min, max) tuples for restricting an
-            axis's variation range, but this is not implemented yet.
+            axis's variation range. The default axis value must be included in
+            the new range.
         inplace (bool): whether to modify input TTFont object in-place instead of
             returning a distinct object.
         optimize (bool): if False, do not perform IUP-delta optimization on the
@@ -1177,14 +1178,15 @@ def instantiateVariableFont(
             on all glyphs to maximise cross-compatibility of the generated instance.
             You can disable this by passing OverlapMode.KEEP_AND_DONT_SET_FLAGS.
             If you want to remove the overlaps altogether and merge overlapping
-            contours and components, you can pass OverlapMode.REMOVE. Note that this
+            contours and components, you can pass OverlapMode.REMOVE (or
+            REMOVE_AND_IGNORE_ERRORS to not hard-fail on tricky glyphs). Note that this
             requires the skia-pathops package (available to pip install).
             The overlap parameter only has effect when generating full static instances.
         updateFontNames (bool): if True, update the instantiated font's name table using
-            the Axis Value Tables from the STAT table. The name table will be updated so
-            it conforms to the R/I/B/BI model. If the STAT table is missing or
-            an Axis Value table is missing for a given axis coordinate, a ValueError will
-            be raised.
+            the Axis Value Tables from the STAT table. The name table and the style bits
+            in the head and OS/2 table will be updated so they conform to the R/I/B/BI
+            model. If the STAT table is missing or an Axis Value table is missing for
+            a given axis coordinate, a ValueError will be raised.
     """
     # 'overlap' used to be bool and is now enum; for backward compat keep accepting bool
     overlap = OverlapMode(int(overlap))
@@ -1236,11 +1238,14 @@ def instantiateVariableFont(
         if "glyf" in varfont:
             if overlap == OverlapMode.KEEP_AND_SET_FLAGS:
                 setMacOverlapFlags(varfont["glyf"])
-            elif overlap == OverlapMode.REMOVE:
+            elif overlap in (OverlapMode.REMOVE, OverlapMode.REMOVE_AND_IGNORE_ERRORS):
                 from fontTools.ttLib.removeOverlaps import removeOverlaps
 
                 log.info("Removing overlaps from glyf table")
-                removeOverlaps(varfont)
+                removeOverlaps(
+                    varfont,
+                    ignoreErrors=(overlap == OverlapMode.REMOVE_AND_IGNORE_ERRORS),
+                )
 
     varLib.set_default_weight_width_slant(
         varfont,
@@ -1251,7 +1256,49 @@ def instantiateVariableFont(
         },
     )
 
+    if updateFontNames:
+        # Set Regular/Italic/Bold/Bold Italic bits as appropriate, after the
+        # name table has been updated.
+        setRibbiBits(varfont)
+
     return varfont
+
+
+def setRibbiBits(font):
+    """Set the `head.macStyle` and `OS/2.fsSelection` style bits
+    appropriately."""
+
+    english_ribbi_style = font["name"].getName(names.NameID.SUBFAMILY_NAME, 3, 1, 0x409)
+    if english_ribbi_style is None:
+        return
+
+    styleMapStyleName = english_ribbi_style.toStr().lower()
+    if styleMapStyleName not in {"regular", "bold", "italic", "bold italic"}:
+        return
+
+    if styleMapStyleName == "bold":
+        font["head"].macStyle = 0b01
+    elif styleMapStyleName == "bold italic":
+        font["head"].macStyle = 0b11
+    elif styleMapStyleName == "italic":
+        font["head"].macStyle = 0b10
+
+    selection = font["OS/2"].fsSelection
+    # First clear...
+    selection &= ~(1 << 0)
+    selection &= ~(1 << 5)
+    selection &= ~(1 << 6)
+    # ...then re-set the bits.
+    if styleMapStyleName == "regular":
+        selection |= 1 << 6
+    elif styleMapStyleName == "bold":
+        selection |= 1 << 5
+    elif styleMapStyleName == "italic":
+        selection |= 1 << 0
+    elif styleMapStyleName == "bold italic":
+        selection |= 1 << 0
+        selection |= 1 << 5
+    font["OS/2"].fsSelection = selection
 
 
 def splitAxisLocationAndRanges(axisLimits, rangeType=AxisRange):
@@ -1348,10 +1395,28 @@ def parseArgs(args):
         "when generating a full instance). Requires skia-pathops",
     )
     parser.add_argument(
+        "--ignore-overlap-errors",
+        dest="ignore_overlap_errors",
+        action="store_true",
+        help="Don't crash if the remove-overlaps operation fails for some glyphs.",
+    )
+    parser.add_argument(
         "--update-name-table",
         action="store_true",
         help="Update the instantiated font's `name` table. Input font must have "
         "a STAT table with Axis Value Tables",
+    )
+    parser.add_argument(
+        "--no-recalc-timestamp",
+        dest="recalc_timestamp",
+        action="store_false",
+        help="Don't set the output font's timestamp to the current time.",
+    )
+    parser.add_argument(
+        "--no-recalc-bounds",
+        dest="recalc_bounds",
+        action="store_false",
+        help="Don't recalculate font bounding boxes",
     )
     loggingGroup = parser.add_mutually_exclusive_group(required=False)
     loggingGroup.add_argument(
@@ -1363,7 +1428,10 @@ def parseArgs(args):
     options = parser.parse_args(args)
 
     if options.remove_overlaps:
-        options.overlap = OverlapMode.REMOVE
+        if options.ignore_overlap_errors:
+            options.overlap = OverlapMode.REMOVE_AND_IGNORE_ERRORS
+        else:
+            options.overlap = OverlapMode.REMOVE
     else:
         options.overlap = OverlapMode(int(options.overlap))
 
@@ -1387,12 +1455,16 @@ def parseArgs(args):
 
 
 def main(args=None):
-    """Partially instantiate a variable font."""
+    """Partially instantiate a variable font"""
     infile, axisLimits, options = parseArgs(args)
     log.info("Restricting axes: %s", axisLimits)
 
     log.info("Loading variable font")
-    varfont = TTFont(infile)
+    varfont = TTFont(
+        infile,
+        recalcTimestamp=options.recalc_timestamp,
+        recalcBBoxes=options.recalc_bounds,
+    )
 
     isFullInstance = {
         axisTag for axisTag, limit in axisLimits.items() if not isinstance(limit, tuple)
@@ -1407,9 +1479,9 @@ def main(args=None):
         updateFontNames=options.update_name_table,
     )
 
+    suffix = "-instance" if isFullInstance else "-partial"
     outfile = (
-        os.path.splitext(infile)[0]
-        + "-{}.ttf".format("instance" if isFullInstance else "partial")
+        makeOutputFileName(infile, overWrite=True, suffix=suffix)
         if not options.output
         else options.output
     )

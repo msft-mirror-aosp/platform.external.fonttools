@@ -5,7 +5,10 @@ from fontTools.varLib.builder import (buildVarRegionList, buildVarStore,
 				      buildVarRegion, buildVarData)
 from functools import partial
 from collections import defaultdict
-from array import array
+
+
+NO_VARIATION_INDEX = ot.NO_VARIATION_INDEX
+ot.VarStore.NO_VARIATION_INDEX = NO_VARIATION_INDEX
 
 
 def _getLocationKey(loc):
@@ -136,6 +139,11 @@ def VarRegion_get_support(self, fvar_axes):
 
 ot.VarRegion.get_support = VarRegion_get_support
 
+def VarStore___bool__(self):
+    return bool(self.VarData)
+
+ot.VarStore.__bool__ = VarStore___bool__
+
 class VarStoreInstancer(object):
 
 	def __init__(self, varstore, fvar_axes, location={}):
@@ -170,6 +178,7 @@ class VarStoreInstancer(object):
 
 	def __getitem__(self, varidx):
 		major, minor = varidx >> 16, varidx & 0xFFFF
+		if varidx == NO_VARIATION_INDEX: return 0.
 		varData = self._varData
 		scalars = [self._getScalar(ri) for ri in varData[major].VarRegionIndex]
 		deltas = varData[major].Item[minor]
@@ -193,6 +202,8 @@ def VarStore_subset_varidxes(self, varIdxes, optimize=True, retainFirstMap=False
 	# Sort out used varIdxes by major/minor.
 	used = {}
 	for varIdx in varIdxes:
+		if varIdx == NO_VARIATION_INDEX:
+			continue
 		major = varIdx >> 16
 		minor = varIdx & 0xFFFF
 		d = used.get(major)
@@ -207,7 +218,7 @@ def VarStore_subset_varidxes(self, varIdxes, optimize=True, retainFirstMap=False
 
 	varData = self.VarData
 	newVarData = []
-	varDataMap = {}
+	varDataMap = {NO_VARIATION_INDEX: NO_VARIATION_INDEX}
 	for major,data in enumerate(varData):
 		usedMinors = used.get(major)
 		if usedMinors is None:
@@ -375,11 +386,10 @@ class _Encoding(object):
 		as a VarData."""
 		c = 6
 		while chars:
-			if chars & 3:
+			if chars & 0b1111:
 				c += 2
-			chars >>= 2
+			chars >>= 4
 		return c
-
 
 	def _find_yourself_best_new_encoding(self, done_by_width):
 		self.best_new_encoding = None
@@ -405,25 +415,42 @@ class _EncodingDict(dict):
 	@staticmethod
 	def _row_characteristics(row):
 		"""Returns encoding characteristics for a row."""
+		longWords = False
+
 		chars = 0
 		i = 1
 		for v in row:
 			if v:
 				chars += i
 			if not (-128 <= v <= 127):
-				chars += i * 2
-			i <<= 2
+				chars += i * 0b0010
+			if not (-32768 <= v <= 32767):
+				longWords = True
+				break
+			i <<= 4
+
+		if longWords:
+			# Redo; only allow 2byte/4byte encoding
+			chars = 0
+			i = 1
+			for v in row:
+				if v:
+					chars += i * 0b0011
+				if not (-32768 <= v <= 32767):
+					chars += i * 0b1100
+				i <<= 4
+
 		return chars
 
 
-def VarStore_optimize(self):
+def VarStore_optimize(self, use_NO_VARIATION_INDEX=True):
 	"""Optimize storage. Returns mapping from old VarIdxes to new ones."""
 
 	# TODO
 	# Check that no two VarRegions are the same; if they are, fold them.
 
 	n = len(self.VarRegionList.Region) # Number of columns
-	zeroes = array('h', [0]*n)
+	zeroes = [0] * n
 
 	front_mapping = {} # Map from old VarIdxes to full row tuples
 
@@ -435,10 +462,14 @@ def VarStore_optimize(self):
 
 		for minor,item in enumerate(data.Item):
 
-			row = array('h', zeroes)
+			row = list(zeroes)
 			for regionIdx,v in zip(regionIndices, item):
 				row[regionIdx] += v
 			row = tuple(row)
+
+			if use_NO_VARIATION_INDEX and not any(row):
+				front_mapping[(major<<16)+minor] = None
+				continue
 
 			encodings.add_row(row)
 			front_mapping[(major<<16)+minor] = row
@@ -522,9 +553,9 @@ def VarStore_optimize(self):
 			back_mapping[item] = (major<<16)+minor
 
 	# Compile final mapping.
-	varidx_map = {}
+	varidx_map = {NO_VARIATION_INDEX:NO_VARIATION_INDEX}
 	for k,v in front_mapping.items():
-		varidx_map[k] = back_mapping[v]
+		varidx_map[k] = back_mapping[v] if v is not None else NO_VARIATION_INDEX
 
 	# Remove unused regions.
 	self.prune_regions()

@@ -61,7 +61,7 @@ Libraries
 ---------
 
 The main library you will want to access when using fontTools for font
-engineering is likely to be :py:mod:`fontTools.ttLib`, which is the package
+engineering is likely to be :py:mod:`fontTools.ttLib.ttFont`, which is the module
 for handling TrueType/OpenType fonts. However, there are many other
 libraries in the fontTools suite:
 
@@ -69,6 +69,7 @@ libraries in the fontTools suite:
 - :py:mod:`fontTools.agl`: Access to the Adobe Glyph List
 - :py:mod:`fontTools.cffLib`: Read/write tools for Adobe CFF fonts
 - :py:mod:`fontTools.colorLib`: Module for handling colors in CPAL/COLR fonts
+- :py:mod:`fontTools.config`: Configure fontTools
 - :py:mod:`fontTools.cu2qu`: Module for cubic to quadratic conversion
 - :py:mod:`fontTools.designspaceLib`: Read and write designspace files
 - :py:mod:`fontTools.encodings`: Support for font-related character encodings
@@ -79,6 +80,8 @@ libraries in the fontTools suite:
 - :py:mod:`fontTools.subset`: OpenType font subsetting and optimization
 - :py:mod:`fontTools.svgLib.path`: Library for drawing SVG paths onto glyphs
 - :py:mod:`fontTools.t1Lib`: Tools for PostScript Type 1 fonts (Python2 only)
+- :py:mod:`fontTools.tfmLib`: Module for reading TFM files
+- :py:mod:`fontTools.ttLib`: Module for reading/writing OpenType and Truetype fonts
 - :py:mod:`fontTools.ttx`: Module for converting between OTF and XML representation
 - :py:mod:`fontTools.ufoLib`: Module for reading and writing UFO files
 - :py:mod:`fontTools.unicodedata`: Convert between Unicode and OpenType script information
@@ -118,6 +121,7 @@ Table of Contents
    agl
    cffLib/index
    colorLib/index
+   config
    cu2qu/index
    designspaceLib/index
    encodings/index
@@ -130,6 +134,7 @@ Table of Contents
    subset/index
    svgLib/index
    t1Lib
+   tfmLib
    ttLib/index
    ttx
    ufoLib/index

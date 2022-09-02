@@ -3,11 +3,13 @@
 from collections.abc import Iterable
 from io import BytesIO
 import os
+import re
 import shutil
 import sys
 import tempfile
 from unittest import TestCase as _TestCase
-from fontTools.misc.py23 import tobytes
+from fontTools.config import Config
+from fontTools.misc.textTools import tobytes
 from fontTools.misc.xmlWriter import XMLWriter
 
 
@@ -38,12 +40,21 @@ def parseXML(xmlSnippet):
     return reader.root[2]
 
 
+def parseXmlInto(font, parseInto, xmlSnippet):
+    parsed_xml = [e for e in parseXML(xmlSnippet.strip()) if not isinstance(e, str)]
+    for name, attrs, content in parsed_xml:
+        parseInto.fromXML(name, attrs, content, font)
+    parseInto.populateDefaults()
+    return parseInto
+
+
 class FakeFont:
     def __init__(self, glyphs):
         self.glyphOrder_ = glyphs
         self.reverseGlyphOrderDict_ = {g: i for i, g in enumerate(glyphs)}
         self.lazy = False
         self.tables = {}
+        self.cfg = Config()
 
     def __getitem__(self, tag):
         return self.tables[tag]
@@ -57,11 +68,16 @@ class FakeFont:
     def getGlyphID(self, name):
         return self.reverseGlyphOrderDict_[name]
 
+    def getGlyphIDMany(self, lst):
+        return [self.getGlyphID(gid) for gid in lst]
+
     def getGlyphName(self, glyphID):
         if glyphID < len(self.glyphOrder_):
             return self.glyphOrder_[glyphID]
         else:
             return "glyph%.5d" % glyphID
+    def getGlyphNameMany(self, lst):
+        return [self.getGlyphName(gid) for gid in lst]
 
     def getGlyphOrder(self):
         return self.glyphOrder_
@@ -120,6 +136,31 @@ def getXML(func, ttFont=None):
     return xml.splitlines()
 
 
+def stripVariableItemsFromTTX(
+    string: str,
+    ttLibVersion: bool = True,
+    checkSumAdjustment: bool = True,
+    modified: bool = True,
+    created: bool = True,
+    sfntVersion: bool = False,  # opt-in only
+) -> str:
+    """Strip stuff like ttLibVersion, checksums, timestamps, etc. from TTX dumps."""
+    # ttlib changes with the fontTools version
+    if ttLibVersion:
+        string = re.sub(' ttLibVersion="[^"]+"', "", string)
+    # sometimes (e.g. some subsetter tests) we don't care whether it's OTF or TTF
+    if sfntVersion:
+        string = re.sub(' sfntVersion="[^"]+"', "", string)
+    # head table checksum and creation and mod date changes with each save.
+    if checkSumAdjustment:
+        string = re.sub('<checkSumAdjustment value="[^"]+"/>', "", string)
+    if modified:
+        string = re.sub('<modified value="[^"]+"/>', "", string)
+    if created:
+        string = re.sub('<created value="[^"]+"/>', "", string)
+    return string
+
+
 class MockFont(object):
     """A font-like object that automatically adds any looked up glyphname
     to its glyphOrder."""
@@ -136,7 +177,7 @@ class MockFont(object):
         self._reverseGlyphOrder = AllocatingDict({'.notdef': 0})
         self.lazy = False
 
-    def getGlyphID(self, glyph, requireReal=None):
+    def getGlyphID(self, glyph):
         gid = self._reverseGlyphOrder[glyph]
         return gid
 

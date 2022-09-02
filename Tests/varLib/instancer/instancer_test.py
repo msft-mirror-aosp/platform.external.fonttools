@@ -1,5 +1,6 @@
-from fontTools.misc.py23 import Tag
 from fontTools.misc.fixedTools import floatToFixedToFloat
+from fontTools.misc.testTools import stripVariableItemsFromTTX
+from fontTools.misc.textTools import Tag
 from fontTools import ttLib
 from fontTools import designspaceLib
 from fontTools.feaLib.builder import addOpenTypeFeaturesFromString
@@ -457,6 +458,8 @@ class InstantiateItemVariationStoreTest(object):
 
         defaultDeltaArray = []
         for varidx, delta in sorted(defaultDeltas.items()):
+            if varidx == varStore.NO_VARIATION_INDEX:
+                continue
             major, minor = varidx >> 16, varidx & 0xFFFF
             if major == len(defaultDeltaArray):
                 defaultDeltaArray.append([])
@@ -936,6 +939,30 @@ class InstantiateOTLTest(object):
         assert not hasattr(valueRec1, "XAdvDevice")
         assert valueRec1.XAdvance == v2
 
+    def test_GPOS_ValueRecord_XAdvDevice_wtihout_XAdvance(self):
+        # Test VF contains a PairPos adjustment in which the default instance
+        # has no XAdvance but there are deltas in XAdvDevice (VariationIndex).
+        vf = ttLib.TTFont()
+        vf.importXML(os.path.join(TESTDATA, "PartialInstancerTest4-VF.ttx"))
+        pairPos = vf["GPOS"].table.LookupList.Lookup[0].SubTable[0]
+        assert pairPos.ValueFormat1 == 0x40
+        valueRec1 = pairPos.PairSet[0].PairValueRecord[0].Value1
+        assert not hasattr(valueRec1, "XAdvance")
+        assert valueRec1.XAdvDevice.DeltaFormat == 0x8000
+        outer = valueRec1.XAdvDevice.StartSize
+        inner = valueRec1.XAdvDevice.EndSize
+        assert vf["GDEF"].table.VarStore.VarData[outer].Item[inner] == [-50]
+
+        # check that MutatorMerger for ValueRecord doesn't raise AttributeError
+        # when XAdvDevice is present but there's no corresponding XAdvance.
+        instancer.instantiateOTL(vf, {"wght": 0.5})
+
+        pairPos = vf["GPOS"].table.LookupList.Lookup[0].SubTable[0]
+        assert pairPos.ValueFormat1 == 0x4
+        valueRec1 = pairPos.PairSet[0].PairValueRecord[0].Value1
+        assert not hasattr(valueRec1, "XAdvDevice")
+        assert valueRec1.XAdvance == -25
+
 
 class InstantiateAvarTest(object):
     @pytest.mark.parametrize("location", [{"wght": 0.0}, {"wdth": 0.0}])
@@ -1362,10 +1389,6 @@ def test_setMacOverlapFlags():
     assert b.components[0].flags & flagOverlapCompound != 0
 
 
-def _strip_ttLibVersion(string):
-    return re.sub(' ttLibVersion=".*"', "", string)
-
-
 @pytest.fixture
 def varfont2():
     f = ttLib.TTFont(recalcTimestamp=False)
@@ -1387,8 +1410,8 @@ def _dump_ttx(ttFont):
     tmp.seek(0)
     ttFont2 = ttLib.TTFont(tmp, recalcBBoxes=False, recalcTimestamp=False)
     s = StringIO()
-    ttFont2.saveXML(s, newlinestr="\n")
-    return _strip_ttLibVersion(s.getvalue())
+    ttFont2.saveXML(s)
+    return stripVariableItemsFromTTX(s.getvalue())
 
 
 def _get_expected_instance_ttx(
@@ -1404,7 +1427,7 @@ def _get_expected_instance_ttx(
         "r",
         encoding="utf-8",
     ) as fp:
-        return _strip_ttLibVersion(fp.read())
+        return stripVariableItemsFromTTX(fp.read())
 
 
 class InstantiateVariableFontTest(object):
@@ -1451,6 +1474,23 @@ class InstantiateVariableFontTest(object):
         )
 
         assert _dump_ttx(instance) == expected
+
+    def test_singlepos(self):
+        varfont = ttLib.TTFont(recalcTimestamp=False)
+        varfont.importXML(os.path.join(TESTDATA, "SinglePos.ttx"))
+
+        location = {"wght": 280, "opsz": 18}
+
+        instance = instancer.instantiateVariableFont(
+            varfont, location,
+        )
+
+        expected = _get_expected_instance_ttx(
+            "SinglePos", *location.values()
+        )
+
+        assert _dump_ttx(instance) == expected
+
 
 
 def _conditionSetAsDict(conditionSet, axisOrder):
@@ -1937,3 +1977,35 @@ def test_main_exit_multiple_limits(varfont, tmpdir, capsys):
     captured = capsys.readouterr()
 
     assert "Specified multiple limits for the same axis" in captured.err
+
+
+def test_set_ribbi_bits():
+    varfont = ttLib.TTFont()
+    varfont.importXML(os.path.join(TESTDATA, "STATInstancerTest.ttx"))
+
+    for location in [instance.coordinates for instance in varfont["fvar"].instances]:
+        instance = instancer.instantiateVariableFont(
+            varfont, location, updateFontNames=True
+        )
+        name_id_2 = instance["name"].getDebugName(2)
+        mac_style = instance["head"].macStyle
+        fs_selection = instance["OS/2"].fsSelection & 0b1100001  # Just bits 0, 5, 6
+
+        if location["ital"] == 0:
+            if location["wght"] == 700:
+                assert name_id_2 == "Bold", location
+                assert mac_style == 0b01, location
+                assert fs_selection == 0b0100000, location
+            else:
+                assert name_id_2 == "Regular", location
+                assert mac_style == 0b00, location
+                assert fs_selection == 0b1000000, location
+        else:
+            if location["wght"] == 700:
+                assert name_id_2 == "Bold Italic", location
+                assert mac_style == 0b11, location
+                assert fs_selection == 0b0100001, location
+            else:
+                assert name_id_2 == "Italic", location
+                assert mac_style == 0b10, location
+                assert fs_selection == 0b0000001, location

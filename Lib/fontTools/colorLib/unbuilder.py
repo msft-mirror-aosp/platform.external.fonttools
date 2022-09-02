@@ -2,23 +2,26 @@ from fontTools.ttLib.tables import otTables as ot
 from .table_builder import TableUnbuilder
 
 
-def unbuildColrV1(layerV1List, baseGlyphV1List):
-    unbuilder = LayerV1ListUnbuilder(layerV1List.Paint)
+def unbuildColrV1(layerList, baseGlyphList):
+    layers = []
+    if layerList:
+        layers = layerList.Paint
+    unbuilder = LayerListUnbuilder(layers)
     return {
         rec.BaseGlyph: unbuilder.unbuildPaint(rec.Paint)
-        for rec in baseGlyphV1List.BaseGlyphV1Record
+        for rec in baseGlyphList.BaseGlyphPaintRecord
     }
 
 
-def _flatten(lst):
-    for el in lst:
-        if isinstance(el, list):
-            yield from _flatten(el)
+def _flatten_layers(lst):
+    for paint in lst:
+        if paint["Format"] == ot.PaintFormat.PaintColrLayers:
+            yield from _flatten_layers(paint["Layers"])
         else:
-            yield el
+            yield paint
 
 
-class LayerV1ListUnbuilder:
+class LayerListUnbuilder:
     def __init__(self, layers):
         self.layers = layers
 
@@ -38,7 +41,7 @@ class LayerV1ListUnbuilder:
         assert source["Format"] == ot.PaintFormat.PaintColrLayers
 
         layers = list(
-            _flatten(
+            _flatten_layers(
                 [
                     self.unbuildPaint(childPaint)
                     for childPaint in self.layers[
@@ -71,9 +74,8 @@ if __name__ == "__main__":
         sys.exit(f"error: No COLR table version=1 found in {fontfile}")
 
     colorGlyphs = unbuildColrV1(
-        colr.table.LayerV1List,
-        colr.table.BaseGlyphV1List,
-        ignoreVarIdx=not colr.table.VarStore,
+        colr.table.LayerList,
+        colr.table.BaseGlyphList,
     )
 
     pprint(colorGlyphs)

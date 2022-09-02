@@ -486,15 +486,12 @@ class FontBuilder(object):
         """Create a new `OS/2` table and initialize it with default values,
         which can be overridden by keyword arguments.
         """
-        if "xAvgCharWidth" not in values:
-            gs = self.font.getGlyphSet()
-            widths = [
-                gs[glyphName].width
-                for glyphName in gs.keys()
-                if gs[glyphName].width > 0
-            ]
-            values["xAvgCharWidth"] = int(round(sum(widths) / float(len(widths))))
         self._initTableWithValues("OS/2", _OS2Defaults, values)
+        if "xAvgCharWidth" not in values:
+            assert (
+                "hmtx" in self.font
+            ), "the 'hmtx' table must be setup before the 'OS/2' table"
+            self.font["OS/2"].recalcAvgCharWidth(self.font)
         if not (
             "ulUnicodeRange1" in values
             or "ulUnicodeRange2" in values
@@ -834,7 +831,15 @@ class FontBuilder(object):
             self.font, conditionalSubstitutions, featureTag=featureTag
         )
 
-    def setupCOLR(self, colorLayers, version=None, varStore=None):
+    def setupCOLR(
+        self,
+        colorLayers,
+        version=None,
+        varStore=None,
+        varIndexMap=None,
+        clipBoxes=None,
+        allowLayerReuse=True,
+    ):
         """Build new COLR table using color layers dictionary.
 
         Cf. `fontTools.colorLib.builder.buildCOLR`.
@@ -843,7 +848,13 @@ class FontBuilder(object):
 
         glyphMap = self.font.getReverseGlyphMap()
         self.font["COLR"] = buildCOLR(
-            colorLayers, version=version, glyphMap=glyphMap, varStore=varStore
+            colorLayers,
+            version=version,
+            glyphMap=glyphMap,
+            varStore=varStore,
+            varIndexMap=varIndexMap,
+            clipBoxes=clipBoxes,
+            allowLayerReuse=allowLayerReuse,
         )
 
     def setupCPAL(

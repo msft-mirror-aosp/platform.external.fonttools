@@ -84,12 +84,11 @@ class BuildTest(unittest.TestCase):
         lines = []
         with open(path, "r", encoding="utf-8") as ttx:
             for line in ttx.readlines():
-                # Elide ttFont attributes because ttLibVersion may change,
-                # and use os-native line separators so we can run difflib.
+                # Elide ttFont attributes because ttLibVersion may change.
                 if line.startswith("<ttFont "):
-                    lines.append("<ttFont>" + os.linesep)
+                    lines.append("<ttFont>\n")
                 else:
-                    lines.append(line.rstrip() + os.linesep)
+                    lines.append(line.rstrip() + "\n")
         return lines
 
     def expect_ttx(self, font, expected_ttx, tables):
@@ -824,6 +823,7 @@ been the same. This happened while performing the following operation:
 GPOS.table.FeatureList.FeatureCount
 
 The problem is likely to be in Simple Two Axis Bold:
+Expected to see .FeatureCount==2, instead saw 1
 
 Incompatible features between masters.
 Expected: kern, mark.
@@ -841,7 +841,7 @@ Got: kern.
     def test_varlib_build_incompatible_lookup_types(self):
         with pytest.raises(
             varLibErrors.MismatchedTypes,
-            match = r"MarkBasePos, instead saw PairPos"
+            match = r"'MarkBasePos', instead saw 'PairPos'"
         ):
             self._run_varlib_build_test(
                 designspace_name="IncompatibleLookupTypes",
@@ -870,6 +870,15 @@ Expected to see .ScriptCount==1, instead saw 0"""
                 expected_ttx_name="IncompatibleArrays",
                 save_before_dump=True,
             )
+
+    def test_varlib_build_variable_colr(self):
+        self._run_varlib_build_test(
+            designspace_name='TestVariableCOLR',
+            font_name='TestVariableCOLR',
+            tables=["GlyphOrder", "fvar", "glyf", "COLR", "CPAL"],
+            expected_ttx_name='TestVariableCOLR-VF',
+            save_before_dump=True,
+        )
 
 def test_load_masters_layerName_without_required_font():
     ds = DesignSpaceDocument()
