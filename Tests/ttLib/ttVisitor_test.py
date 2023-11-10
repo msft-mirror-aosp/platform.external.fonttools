@@ -21,14 +21,12 @@ class TestVisitor(TTVisitor):
 
 
 class TTVisitorTest(object):
-
     @staticmethod
     def getpath(testfile):
         path = os.path.dirname(__file__)
         return os.path.join(path, "data", testfile)
 
     def test_ttvisitor(self):
-
         font = TTFont(self.getpath("TestVGID-Regular.otf"))
         visitor = TestVisitor()
 
