@@ -701,7 +701,7 @@ def test_axisMappingsRoundtrip(tmpdir):
     doc = DesignSpaceDocument()
     doc.read(testDocPath)
     assert doc.axisMappings
-    assert len(doc.axisMappings) == 1
+    assert len(doc.axisMappings) == 2
     assert doc.axisMappings[0].inputLocation == {"Justify": -100.0, "Width": 100.0}
 
     # This is a bit of a hack, but it's the only way to make sure
@@ -719,6 +719,12 @@ def test_axisMappingsRoundtrip(tmpdir):
     ]
     assert [mapping.outputLocation for mapping in doc.axisMappings] == [
         mapping.outputLocation for mapping in doc2.axisMappings
+    ]
+    assert [mapping.description for mapping in doc.axisMappings] == [
+        mapping.description for mapping in doc2.axisMappings
+    ]
+    assert [mapping.groupDescription for mapping in doc.axisMappings] == [
+        mapping.groupDescription for mapping in doc2.axisMappings
     ]
 
 

@@ -263,11 +263,14 @@ Example of all axis elements together
 ``<mappings>`` element
 ======================
 
--  Define axis mappings.
+-  Define an axis mappings group.
 -  Child element of ``axes``
 
+.. rubric:: Attributes
 
- .. versionadded:: 5.1
+- ``description``: optional, string. the description of this mappings group
+
+ .. versionadded:: 5.2
 
 
 ``<mapping>`` element
@@ -276,8 +279,11 @@ Example of all axis elements together
 -  Defines an axis mapping.
 -  Child element of ``<mappings>``
 
+.. rubric:: Attributes
 
- .. versionadded:: 5.1
+- ``description``: optional, string. the description of this mapping
+
+ .. versionadded:: 5.2
 
 
 ``<input>`` element
@@ -438,8 +444,8 @@ glyphname pairs: the glyphs that need to be substituted. For a rule to be trigge
       See the following issues for more information:
       `fontTools#1371 <https://github.com/fonttools/fonttools/issues/1371#issuecomment-590214572>`__
       `fontTools#2050 <https://github.com/fonttools/fonttools/issues/2050#issuecomment-678691020>`__
-   -  If you want to use a different feature altogether, e.g. ``calt``,
-      use the lib key ``com.github.fonttools.varLib.featureVarsFeatureTag``
+   -  If you want to use a different feature(s) altogether, e.g. ``calt``,
+      use the lib key ``com.github.fonttools.varLib.featureVarsFeatureTag``.
 
       .. code:: xml
 
@@ -449,6 +455,9 @@ glyphname pairs: the glyphs that need to be substituted. For a rule to be trigge
                    <string>calt</string>
                </dict>
            </lib>
+
+      This can also take a comma-separated list of feature tags, e.g. ``salt,ss01``,
+      if you wish the same rules to be applied with several features.
 
 
 
@@ -790,7 +799,7 @@ The ``<variable-fonts>`` element contains one or more ``<variable-font>`` elemen
      but the design space is sliced at the given location. *Note:* While valid to have a
      specific value that doesn’t have a matching ``<source>`` at that value, currently there
      isn’t an implentation that supports this. See `this fontmake issue
-     <https://github.com/googlefonts/fontmake/issues/920>`.
+     <https://github.com/googlefonts/fontmake/issues/920>`_.
 
      .. code:: xml
 
@@ -841,6 +850,38 @@ Arbitrary data about this variable font.
 .. versionadded:: 5.0
 
 .. seealso:: :ref:`lib`
+
+Here is an example of using the ``public.fontInfo`` lib key to gain more granular
+control over the font info of a variable font, in this case setting some names to
+reflect the fact that this is a Narrow variable font subset from the larger designspace. 
+This lib key allows font info in variable fonts to be more specific than the font 
+info of the sources.
+
+.. rubric:: Example
+
+.. code:: xml
+
+    <variable-font name="MyFontNarrVF">
+      <axis-subsets>
+        <axis-subset name="Weight"/>
+        <axis-subset name="Width" uservalue="75"/>
+      </axis-subsets>
+      <lib>
+        <dict>
+          <key>public.fontInfo</key>
+          <dict>
+            <key>familyName</key>
+            <string>My Font Narrow VF</string>
+            <key>styleName</key>
+            <string>Regular</string>
+            <key>postscriptFontName</key>
+            <string>MyFontNarrVF-Regular</string>
+            <key>trademark</key>
+            <string>My Font Narrow VF is a registered trademark...</string>
+          </dict>
+        </dict>
+      </lib>
+    </variable-font>
 
 
 Instances included in the variable font
@@ -989,6 +1030,57 @@ instance directly.
         </instances>
     </designspace>
 
+Here is an example of using the ``public.fontInfo`` lib key to gain more granular
+control over the font info of the instances. 
+
+``openTypeNameWWSFamilyName`` and ``openTypeNameWWSSubfamilyName`` are not able to 
+be set by attributes on the ``<instance>`` element. The ``openTypeOS2WeightClass`` 
+key is superseding the value that would have been set by the ``weight`` axis value. 
+The ``trademark`` key is superseding the value that would have been set by UFO source 
+at the origin. If the designer wishes to set name records for other encodings, 
+platforms or laguages, they should do so using the ``openTypeNameRecords`` key, like 
+they would in a UFO source.
+
+See `UFO3 fontinfo.plist specification <https://unifiedfontobject.org/versions/ufo3/fontinfo.plist/>`_.
+
+.. code:: xml
+
+    <instance familyname="My Font" stylename="Text Light" filename="instances/MyFont-TextLight.ufo" postscriptfontname="MyFont-TextLight" stylemapfamilyname="My Font Text Light" stylemapstylename="regular">
+        <location>
+            <dimension name="optical" xvalue="6"/>
+            <dimension name="weight" xvalue="325"/>
+        </location>
+        <lib>
+            <dict>
+                <key>public.fontInfo</key>
+                <dict>
+                    <key>openTypeNameWWSFamilyName</key>
+                    <string>My Font Text</string>
+                    <key>openTypeNameWWSSubfamilyName</key>
+                    <string>Light</string>
+                    <key>openTypeOS2WeightClass</key>
+                    <integer>300</integer>
+                    <key>trademark</key>
+                    <string>My Font Text Light is a registered trademark...</string>
+                    <key>openTypeNameRecords</key>
+                    <array>
+                        <dict>
+                            <key>encodingID</key>
+                            <integer>1</integer>
+                            <key>languageID</key>
+                            <integer>1031</integer>
+                            <key>nameID</key>
+                            <integer>7</integer>
+                            <key>platformID</key>
+                            <integer>3</integer>
+                            <key>string</key>
+                            <string>Meine Schrift Text Leicht ist eine registrierte Marke...</string>
+                        </dict>
+                    </array>
+                </dict>
+            </dict>
+        </lib>
+    </instance>
 
 ``<glyphs>`` element (instance)
 -------------------------------
