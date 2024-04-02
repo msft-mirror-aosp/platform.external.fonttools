@@ -46,9 +46,7 @@ env_with_cython = os.environ.get("FONTTOOLS_WITH_CYTHON")
 with_cython = (
     True
     if env_with_cython in {"1", "true", "yes"}
-    else False
-    if env_with_cython in {"0", "false", "no"}
-    else None
+    else False if env_with_cython in {"0", "false", "no"} else None
 )
 # --with-cython/--without-cython options override environment variables
 opt_with_cython = {"--with-cython"}.intersection(sys.argv)
@@ -97,7 +95,7 @@ extras_require = {
     # for fontTools.misc.etree and fontTools.misc.plistlib: use lxml to
     # read/write XML files (faster/safer than built-in ElementTree)
     "lxml": [
-        "lxml >= 4.0, < 5",
+        "lxml >= 4.0",
     ],
     # for fontTools.sfnt and fontTools.woff2: to compress/uncompress
     # WOFF 1.0 and WOFF 2.0 webfonts.
@@ -120,6 +118,9 @@ extras_require = {
         # use pure-python alternative on pypy
         "scipy; platform_python_implementation != 'PyPy'",
         "munkres; platform_python_implementation == 'PyPy'",
+        # to output PDF or HTML reports. NOTE: wheels are only available for
+        # windows currently, other platforms will need to build from source.
+        "pycairo",
     ],
     # for fontTools.varLib.plot, to visualize DesignSpaceDocument and resulting
     # VariationModel
@@ -241,7 +242,7 @@ class release(Command):
     ]
 
     changelog_name = "NEWS.rst"
-    version_RE = re.compile("^[0-9]+\.[0-9]+")
+    version_RE = re.compile(r"^[0-9]+\.[0-9]+")
     date_fmt = "%Y-%m-%d"
     header_fmt = "%s (released %s)"
     commit_message = "Release {new_version}"
@@ -467,7 +468,7 @@ if ext_modules:
 
 setup_params = dict(
     name="fonttools",
-    version="4.44.0",
+    version="4.49.0",
     description="Tools to manipulate font files",
     author="Just van Rossum",
     author_email="just@letterror.com",
