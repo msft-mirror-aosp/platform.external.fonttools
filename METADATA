@@ -1,23 +1,20 @@
-# *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
-#     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
-#     DEPENDING ON IT IN YOUR PROJECT. ***
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update external/fonttools
+# For more info, check https://cs.android.com/android/platform/superproject/+/main:tools/external_updater/README.md
+
 name: "fonttools"
 description: "fontTools is a library for manipulating fonts, written in Python."
 third_party {
-  url {
-    type: HOMEPAGE
-    value: "https://github.com/fonttools/fonttools"
-  }
-  url {
-    type: ARCHIVE
-    value: "https://github.com/fonttools/fonttools/archive/4.37.1.zip"
-  }
-  version: "4.37.1"
-  license_type: BY_EXCEPTION_ONLY
-  license_note: "contains OFL fonts"
+  license_type: NOTICE
   last_upgrade_date {
-    year: 2022
-    month: 8
-    day: 24
+    year: 2024
+    month: 4
+    day: 1
+  }
+  homepage: "https://github.com/fonttools/fonttools"
+  identifier {
+    type: "Archive"
+    value: "https://github.com/fonttools/fonttools/archive/4.49.0.zip"
+    version: "4.49.0"
   }
 }

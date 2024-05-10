@@ -31,15 +31,130 @@ def test_normalizeLocation():
     assert normalizeLocation({"wght": 1001}, axes) == {"wght": 0.0}
 
 
+@pytest.mark.parametrize(
+    "axes, location, expected",
+    [
+        # lower != default != upper
+        ({"wght": (100, 400, 900)}, {"wght": 1000}, {"wght": 1.2}),
+        ({"wght": (100, 400, 900)}, {"wght": 900}, {"wght": 1.0}),
+        ({"wght": (100, 400, 900)}, {"wght": 650}, {"wght": 0.5}),
+        ({"wght": (100, 400, 900)}, {"wght": 400}, {"wght": 0.0}),
+        ({"wght": (100, 400, 900)}, {"wght": 250}, {"wght": -0.5}),
+        ({"wght": (100, 400, 900)}, {"wght": 100}, {"wght": -1.0}),
+        ({"wght": (100, 400, 900)}, {"wght": 25}, {"wght": -1.25}),
+        # lower == default != upper
+        (
+            {"wght": (400, 400, 900), "wdth": (100, 100, 150)},
+            {"wght": 1000, "wdth": 200},
+            {"wght": 1.2, "wdth": 2.0},
+        ),
+        (
+            {"wght": (400, 400, 900), "wdth": (100, 100, 150)},
+            {"wght": 25, "wdth": 25},
+            {"wght": -0.75, "wdth": -1.5},
+        ),
+        # lower != default == upper
+        (
+            {"wght": (100, 400, 400), "wdth": (50, 100, 100)},
+            {"wght": 700, "wdth": 150},
+            {"wght": 1.0, "wdth": 1.0},
+        ),
+        (
+            {"wght": (100, 400, 400), "wdth": (50, 100, 100)},
+            {"wght": -50, "wdth": 25},
+            {"wght": -1.5, "wdth": -1.5},
+        ),
+        # degenerate case with lower == default == upper, normalized location always 0
+        ({"wght": (400, 400, 400)}, {"wght": 100}, {"wght": 0.0}),
+        ({"wght": (400, 400, 400)}, {"wght": 400}, {"wght": 0.0}),
+        ({"wght": (400, 400, 400)}, {"wght": 700}, {"wght": 0.0}),
+    ],
+)
+def test_normalizeLocation_extrapolate(axes, location, expected):
+    assert normalizeLocation(location, axes, extrapolate=True) == expected
+
+
 def test_supportScalar():
     assert supportScalar({}, {}) == 1.0
     assert supportScalar({"wght": 0.2}, {}) == 1.0
     assert supportScalar({"wght": 0.2}, {"wght": (0, 2, 3)}) == 0.1
     assert supportScalar({"wght": 2.5}, {"wght": (0, 2, 4)}) == 0.75
-    assert supportScalar({"wght": 4}, {"wght": (0, 2, 2)}) == 0.0
-    assert supportScalar({"wght": 4}, {"wght": (0, 2, 2)}, extrapolate=True) == 2.0
-    assert supportScalar({"wght": 4}, {"wght": (0, 2, 3)}, extrapolate=True) == 2.0
-    assert supportScalar({"wght": 2}, {"wght": (0, 0.75, 1)}, extrapolate=True) == -4.0
+    assert supportScalar({"wght": 3}, {"wght": (0, 2, 2)}) == 0.0
+    assert (
+        supportScalar(
+            {"wght": 3},
+            {"wght": (0, 2, 2)},
+            extrapolate=True,
+            axisRanges={"wght": (0, 2)},
+        )
+        == 1.5
+    )
+    assert (
+        supportScalar(
+            {"wght": -1},
+            {"wght": (0, 2, 2)},
+            extrapolate=True,
+            axisRanges={"wght": (0, 2)},
+        )
+        == -0.5
+    )
+    assert (
+        supportScalar(
+            {"wght": 3},
+            {"wght": (0, 1, 2)},
+            extrapolate=True,
+            axisRanges={"wght": (0, 2)},
+        )
+        == -1.0
+    )
+    assert (
+        supportScalar(
+            {"wght": -1},
+            {"wght": (0, 1, 2)},
+            extrapolate=True,
+            axisRanges={"wght": (0, 2)},
+        )
+        == -1.0
+    )
+    assert (
+        supportScalar(
+            {"wght": 2},
+            {"wght": (0, 0.75, 1)},
+            extrapolate=True,
+            axisRanges={"wght": (0, 1)},
+        )
+        == -4.0
+    )
+    with pytest.raises(TypeError):
+        supportScalar(
+            {"wght": 2}, {"wght": (0, 0.75, 1)}, extrapolate=True, axisRanges=None
+        )
+
+
+def test_model_extrapolate():
+    locations = [{}, {"a": 1}, {"b": 1}, {"a": 1, "b": 1}]
+    model = VariationModel(locations, extrapolate=True)
+    masterValues = [100, 200, 300, 400]
+    testLocsAndValues = [
+        ({"a": -1, "b": -1}, -200),
+        ({"a": -1, "b": 0}, 0),
+        ({"a": -1, "b": 1}, 200),
+        ({"a": -1, "b": 2}, 400),
+        ({"a": 0, "b": -1}, -100),
+        ({"a": 0, "b": 0}, 100),
+        ({"a": 0, "b": 1}, 300),
+        ({"a": 0, "b": 2}, 500),
+        ({"a": 1, "b": -1}, 0),
+        ({"a": 1, "b": 0}, 200),
+        ({"a": 1, "b": 1}, 400),
+        ({"a": 1, "b": 2}, 600),
+        ({"a": 2, "b": -1}, 100),
+        ({"a": 2, "b": 0}, 300),
+        ({"a": 2, "b": 1}, 500),
+        ({"a": 2, "b": 2}, 700),
+    ]
+    for loc, expectedValue in testLocsAndValues:
+        assert expectedValue == model.interpolateFromMasters(loc, masterValues)
 
 
 @pytest.mark.parametrize(
@@ -75,6 +190,17 @@ def test_modeling_error(numLocations, numSamples):
         # err_bad = abs(bad - expected)
         # if err != err_bad:
         #    print("{:d}	{:.2}	{:.2}".format(i, err, err_bad))
+
+
+locationsA = [{}, {"wght": 1}, {"wdth": 1}]
+locationsB = [{}, {"wght": 1}, {"wdth": 1}, {"wght": 1, "wdth": 1}]
+locationsC = [
+    {},
+    {"wght": 0.5},
+    {"wght": 1},
+    {"wdth": 1},
+    {"wght": 1, "wdth": 1},
+]
 
 
 class VariationModelTest(object):
@@ -282,7 +408,7 @@ class VariationModelTest(object):
             )
 
     @pytest.mark.parametrize(
-        "locations, axisOrder, masterValues, instanceLocation, expectedValue",
+        "locations, axisOrder, masterValues, instanceLocation, expectedValue, masterScalars",
         [
             (
                 [
@@ -307,6 +433,7 @@ class VariationModelTest(object):
                     "axis_B": 0.5,
                 },
                 37.5,
+                [0.25, 0.0, 0.0, -0.25, 0.5, 0.5],
             ),
         ],
     )
@@ -317,8 +444,93 @@ class VariationModelTest(object):
         masterValues,
         instanceLocation,
         expectedValue,
+        masterScalars,
     ):
         model = VariationModel(locations, axisOrder=axisOrder)
-        interpolatedValue = model.interpolateFromMasters(instanceLocation, masterValues)
 
+        interpolatedValue = model.interpolateFromMasters(instanceLocation, masterValues)
         assert interpolatedValue == expectedValue
+
+        assert masterScalars == model.getMasterScalars(instanceLocation)
+
+        assert model.interpolateFromValuesAndScalars(
+            masterValues, masterScalars
+        ) == pytest.approx(interpolatedValue)
+
+    @pytest.mark.parametrize(
+        "masterLocations, location, expected",
+        [
+            (locationsA, {"wght": 0, "wdth": 0}, [1, 0, 0]),
+            (
+                locationsA,
+                {"wght": 0.5, "wdth": 0},
+                [0.5, 0.5, 0],
+            ),
+            (locationsA, {"wght": 1, "wdth": 0}, [0, 1, 0]),
+            (
+                locationsA,
+                {"wght": 0, "wdth": 0.5},
+                [0.5, 0, 0.5],
+            ),
+            (locationsA, {"wght": 0, "wdth": 1}, [0, 0, 1]),
+            (locationsA, {"wght": 1, "wdth": 1}, [-1, 1, 1]),
+            (
+                locationsA,
+                {"wght": 0.5, "wdth": 0.5},
+                [0, 0.5, 0.5],
+            ),
+            (
+                locationsA,
+                {"wght": 0.75, "wdth": 0.75},
+                [-0.5, 0.75, 0.75],
+            ),
+            (
+                locationsB,
+                {"wght": 1, "wdth": 1},
+                [0, 0, 0, 1],
+            ),
+            (
+                locationsB,
+                {"wght": 0.5, "wdth": 0},
+                [0.5, 0.5, 0, 0],
+            ),
+            (
+                locationsB,
+                {"wght": 1, "wdth": 0.5},
+                [0, 0.5, 0, 0.5],
+            ),
+            (
+                locationsB,
+                {"wght": 0.5, "wdth": 0.5},
+                [0.25, 0.25, 0.25, 0.25],
+            ),
+            (
+                locationsC,
+                {"wght": 0.5, "wdth": 0},
+                [0, 1, 0, 0, 0],
+            ),
+            (
+                locationsC,
+                {"wght": 0.25, "wdth": 0},
+                [0.5, 0.5, 0, 0, 0],
+            ),
+            (
+                locationsC,
+                {"wght": 0.75, "wdth": 0},
+                [0, 0.5, 0.5, 0, 0],
+            ),
+            (
+                locationsC,
+                {"wght": 0.5, "wdth": 1},
+                [-0.5, 1, -0.5, 0.5, 0.5],
+            ),
+            (
+                locationsC,
+                {"wght": 0.75, "wdth": 1},
+                [-0.25, 0.5, -0.25, 0.25, 0.75],
+            ),
+        ],
+    )
+    def test_getMasterScalars(self, masterLocations, location, expected):
+        model = VariationModel(masterLocations)
+        assert model.getMasterScalars(location) == expected

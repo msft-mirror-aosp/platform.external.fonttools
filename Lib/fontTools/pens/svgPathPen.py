@@ -7,7 +7,7 @@ def pointToString(pt, ntos=str):
 
 
 class SVGPathPen(BasePen):
-    """ Pen to draw SVG path d commands.
+    """Pen to draw SVG path d commands.
 
     Example::
         >>> pen = SVGPathPen(None)
@@ -36,6 +36,7 @@ class SVGPathPen(BasePen):
             glyphset[glyphname].draw(pen)
             print(tpen.getCommands())
     """
+
     def __init__(self, glyphSet, ntos: Callable[[float], str] = str):
         BasePen.__init__(self, glyphSet)
         self._commands = []
@@ -195,9 +196,8 @@ class SVGPathPen(BasePen):
         >>> pen = SVGPathPen(None)
         >>> pen.endPath()
         >>> pen._commands
-        ['Z']
+        []
         """
-        self._closePath()
         self._lastCommand = None
         self._lastX = self._lastY = None
 
@@ -210,65 +210,98 @@ def main(args=None):
 
     if args is None:
         import sys
+
         args = sys.argv[1:]
 
     from fontTools.ttLib import TTFont
     import argparse
 
     parser = argparse.ArgumentParser(
-        "fonttools pens.svgPathPen", description="Generate SVG from text")
+        "fonttools pens.svgPathPen", description="Generate SVG from text"
+    )
+    parser.add_argument("font", metavar="font.ttf", help="Font file.")
+    parser.add_argument("text", metavar="text", nargs="?", help="Text string.")
     parser.add_argument(
-        "font", metavar="font.ttf", help="Font file.")
+        "-y",
+        metavar="<number>",
+        help="Face index into a collection to open. Zero based.",
+    )
     parser.add_argument(
-        "text", metavar="text", help="Text string.")
+        "--glyphs",
+        metavar="whitespace-separated list of glyph names",
+        type=str,
+        help="Glyphs to show. Exclusive with text option",
+    )
     parser.add_argument(
-        "--variations", metavar="AXIS=LOC", default='',
+        "--variations",
+        metavar="AXIS=LOC",
+        default="",
         help="List of space separated locations. A location consist in "
         "the name of a variation axis, followed by '=' and a number. E.g.: "
-        "wght=700 wdth=80. The default is the location of the base master.")
+        "wght=700 wdth=80. The default is the location of the base master.",
+    )
 
     options = parser.parse_args(args)
 
-    font = TTFont(options.font)
+    fontNumber = int(options.y) if options.y is not None else 0
+
+    font = TTFont(options.font, fontNumber=fontNumber)
     text = options.text
+    glyphs = options.glyphs
 
     location = {}
     for tag_v in options.variations.split():
-        fields = tag_v.split('=')
+        fields = tag_v.split("=")
         tag = fields[0].strip()
-        v = int(fields[1])
+        v = float(fields[1])
         location[tag] = v
 
-    hhea = font['hhea']
+    hhea = font["hhea"]
     ascent, descent = hhea.ascent, hhea.descent
 
     glyphset = font.getGlyphSet(location=location)
-    cmap = font['cmap'].getBestCmap()
+    cmap = font["cmap"].getBestCmap()
 
-    s = ''
+    if glyphs is not None and text is not None:
+        raise ValueError("Options --glyphs and --text are exclusive")
+
+    if glyphs is None:
+        glyphs = " ".join(cmap[ord(u)] for u in text)
+
+    glyphs = glyphs.split()
+
+    s = ""
     width = 0
-    for u in text:
-        g = cmap[ord(u)]
+    for g in glyphs:
         glyph = glyphset[g]
 
         pen = SVGPathPen(glyphset)
         glyph.draw(pen)
         commands = pen.getCommands()
 
-        s += '<g transform="translate(%d %d) scale(1 -1)"><path d="%s"/></g>\n' % (width, ascent, commands)
+        s += '<g transform="translate(%d %d) scale(1 -1)"><path d="%s"/></g>\n' % (
+            width,
+            ascent,
+            commands,
+        )
 
         width += glyph.width
 
     print('<?xml version="1.0" encoding="UTF-8"?>')
-    print('<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">' % (width, ascent-descent))
-    print(s, end='')
-    print('</svg>')
+    print(
+        '<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">'
+        % (width, ascent - descent)
+    )
+    print(s, end="")
+    print("</svg>")
 
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) == 1:
         import doctest
+
         sys.exit(doctest.testmod().failed)
 
     sys.exit(main())

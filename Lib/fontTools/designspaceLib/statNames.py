@@ -8,6 +8,7 @@ instance:
     names = getStatNames(doc, instance.getFullUserLocation(doc))
     print(names.styleNames)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -46,7 +47,6 @@ class StatNames:
     postScriptFontName: Optional[str]
     styleMapFamilyNames: Dict[str, str]
     styleMapStyleName: Optional[RibbiStyle]
-
 
 
 def getStatNames(
@@ -89,7 +89,9 @@ def getStatNames(
         # whenever a translation is missing.
         labels = _getAxisLabelsForUserLocation(doc.axes, userLocation)
         if labels:
-            languages = set(language for label in labels for language in label.labelNames)
+            languages = set(
+                language for label in labels for language in label.labelNames
+            )
             languages.add("en")
             for language in languages:
                 styleName = " ".join(
@@ -214,16 +216,34 @@ def _getRibbiStyle(
     axis = axes_by_tag.get("wght")
     if axis is not None:
         for regular_label in axis.axisLabels:
-            if regular_label.linkedUserValue == userLocation[axis.name]:
+            if (
+                regular_label.linkedUserValue == userLocation[axis.name]
+                # In the "recursive" case where both the Regular has
+                # linkedUserValue pointing the Bold, and the Bold has
+                # linkedUserValue pointing to the Regular, only consider the
+                # first case: Regular (e.g. 400) has linkedUserValue pointing to
+                # Bold (e.g. 700, higher than Regular)
+                and regular_label.userValue < regular_label.linkedUserValue
+            ):
                 regularUserLocation[axis.name] = regular_label.userValue
                 bold = True
                 break
 
     axis = axes_by_tag.get("ital") or axes_by_tag.get("slnt")
     if axis is not None:
-        for urpright_label in axis.axisLabels:
-            if urpright_label.linkedUserValue == userLocation[axis.name]:
-                regularUserLocation[axis.name] = urpright_label.userValue
+        for upright_label in axis.axisLabels:
+            if (
+                upright_label.linkedUserValue == userLocation[axis.name]
+                # In the "recursive" case where both the Upright has
+                # linkedUserValue pointing the Italic, and the Italic has
+                # linkedUserValue pointing to the Upright, only consider the
+                # first case: Upright (e.g. ital=0, slant=0) has
+                # linkedUserValue pointing to Italic (e.g ital=1, slant=-12 or
+                # slant=12 for backwards italics, in any case higher than
+                # Upright in absolute value, hence the abs() below.
+                and abs(upright_label.userValue) < abs(upright_label.linkedUserValue)
+            ):
+                regularUserLocation[axis.name] = upright_label.userValue
                 italic = True
                 break
 
