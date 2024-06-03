@@ -19,9 +19,9 @@ jobs:
     # https://github.community/t/github-actions-does-not-respect-skip-ci/17325/8
     if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python 3.x
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.x"
     - name: Install packages
@@ -43,9 +43,9 @@ jobs:
           - platform: windows-latest
             python-version: 3.11
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
@@ -60,7 +60,7 @@ jobs:
         coverage combine
         coverage xml
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
         file: coverage.xml
         flags: unittests
@@ -74,9 +74,9 @@ jobs:
     runs-on: ubuntu-latest
     if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python 3.x
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
     - name: Install packages
@@ -88,9 +88,9 @@ jobs:
     runs-on: ubuntu-latest
     if: "! contains(toJSON(github.event.commits.*.message), '[skip ci]')"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Set up Python pypy3
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "pypy-3.9"
     - name: Install packages
