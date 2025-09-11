@@ -28,17 +28,8 @@ package {
     default_applicable_licenses: ["external_fonttools_license"],
 }
 
-python_defaults {
-    name: "fonttools_default",
-    version: {
-        py3: {
-            embedded_launcher: true,
-        },
-    },
-}
 python_library_host {
     name: "fontTools",
-    defaults: ["fonttools_default"],
     pkg_path: "fontTools",
     srcs: [
         "**/*.py",
